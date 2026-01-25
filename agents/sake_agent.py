@@ -6,16 +6,16 @@ The agent can:
 - Recommend sake based on user preferences
 - Search for specific sake information
 - Find sake rankings from trusted sources
-- Search Instagram for sake-related content
+- Search Instagram for sake-related content and hashtags
 """
 from typing import TypedDict, Annotated, Sequence, Literal, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
 from langgraph.graph.message import add_messages
-from tavily import TavilyClient
+
+from .tools import create_sake_tools
 
 
 class AgentState(TypedDict):
@@ -31,7 +31,13 @@ Your capabilities include:
 1. **Sake Recommendations**: Suggest sake based on user preferences (flavor profiles, food pairings, occasions)
 2. **Sake Information**: Provide detailed information about specific sake brands, breweries, and production methods
 3. **Rankings & Reviews**: Search and share sake rankings from trusted sources
-4. **Social Media Insights**: Find Instagram posts and social content about sake
+4. **Social Media Insights**: Find Instagram posts and hashtag content about sake
+
+Available Tools:
+- search_sake_rankings: Search for top-rated sake from ranking websites (sakenowa.com, saketime.jp)
+- search_sake_info: Get detailed information about a specific sake brand or brewery
+- search_sake_instagram: Find Instagram posts about a specific sake
+- search_instagram_hashtag: Search Instagram posts by hashtag (e.g., #日本酒, #sake, #獺祭)
 
 Key Knowledge Areas:
 - Sake types: Junmai, Honjozo, Ginjo, Daiginjo, Junmai Daiginjo, Nigori, Nama, etc.
@@ -53,194 +59,38 @@ When recommending sake:
 3. Provide context about why each sake matches their preferences
 4. Include tasting notes, food pairings, and where to find it
 
+When users ask about Instagram or social media:
+1. Use search_instagram_hashtag for hashtag searches (e.g., #日本酒, #sake)
+2. Use search_sake_instagram for finding posts about specific sake brands
+
 Be friendly, knowledgeable, and passionate about sake. Help users explore the wonderful world of nihonshu!
 """
 
 
-def create_sake_tools(tavily_api_key: str, instagram_token: Optional[str] = None):
-    """
-    Create tools for the sake guide agent.
-
-    Args:
-        tavily_api_key: API key for Tavily search
-        instagram_token: Optional Instagram access token
-
-    Returns:
-        List of tool functions
-    """
-    tavily_client = TavilyClient(api_key=tavily_api_key)
-
-    @tool
-    def search_sake_rankings(query: str) -> str:
-        """
-        Search for sake recommendations from ranking websites like sakenowa.com and saketime.jp.
-        Use this tool when users ask for sake recommendations, popular sake, or highly-rated sake.
-
-        Args:
-            query: Search query about sake recommendations (e.g., "best fruity sake", "top daiginjo", "人気の純米大吟醸")
-
-        Returns:
-            Sake ranking information and recommendations from trusted sources.
-        """
-        # Detect language and enhance query
-        is_japanese = any(
-            '\u3040' <= c <= '\u309f' or  # Hiragana
-            '\u30a0' <= c <= '\u30ff' or  # Katakana
-            '\u4e00' <= c <= '\u9fff'     # Kanji
-            for c in query
-        )
-
-        if is_japanese:
-            enhanced_query = f"日本酒 ランキング おすすめ {query}"
-        else:
-            enhanced_query = f"Japanese sake ranking recommendation {query}"
-
-        try:
-            results = tavily_client.search(
-                query=enhanced_query,
-                search_depth="advanced",
-                max_results=8,
-                include_domains=["sakenowa.com", "saketime.jp"],
-                include_answer=True,
-            )
-
-            output = []
-            if results.get("answer"):
-                output.append(f"Summary: {results['answer']}\n")
-
-            output.append("Ranking Sources Found:")
-            for idx, result in enumerate(results.get("results", []), 1):
-                output.append(f"\n{idx}. {result.get('title', 'No title')}")
-                output.append(f"   URL: {result.get('url', '')}")
-                content = result.get('content', '')
-                if content:
-                    if len(content) > 500:
-                        content = content[:500] + "..."
-                    output.append(f"   Content: {content}")
-
-            return "\n".join(output) if output else "No ranking information found."
-
-        except Exception as e:
-            return f"Error searching sake rankings: {str(e)}"
-
-    @tool
-    def search_sake_info(sake_name: str, additional_query: str = "") -> str:
-        """
-        Search for detailed information about a specific sake brand or brewery.
-        Use this tool when users ask about a specific sake by name.
-
-        Args:
-            sake_name: Name of the sake to search for (e.g., "Dassai", "獺祭", "Kubota Manju")
-            additional_query: Additional search terms (e.g., "tasting notes", "food pairing")
-
-        Returns:
-            Detailed information about the specified sake.
-        """
-        # Detect language
-        is_japanese = any(
-            '\u3040' <= c <= '\u309f' or
-            '\u30a0' <= c <= '\u30ff' or
-            '\u4e00' <= c <= '\u9fff'
-            for c in sake_name
-        )
-
-        if is_japanese:
-            search_query = f"日本酒 {sake_name} {additional_query} 特徴 味わい 蔵元"
-        else:
-            search_query = f"Japanese sake {sake_name} {additional_query} tasting notes brewery review"
-
-        try:
-            results = tavily_client.search(
-                query=search_query,
-                search_depth="advanced",
-                max_results=6,
-                include_answer=True,
-            )
-
-            output = []
-            if results.get("answer"):
-                output.append(f"Overview: {results['answer']}\n")
-
-            output.append("Detailed Information:")
-            for idx, result in enumerate(results.get("results", []), 1):
-                output.append(f"\n{idx}. {result.get('title', 'No title')}")
-                output.append(f"   Source: {result.get('url', '')}")
-                content = result.get('content', '')
-                if content:
-                    if len(content) > 600:
-                        content = content[:600] + "..."
-                    output.append(f"   Details: {content}")
-
-            return "\n".join(output) if output else "No detailed information found."
-
-        except Exception as e:
-            return f"Error searching sake info: {str(e)}"
-
-    @tool
-    def search_sake_instagram(sake_name: str) -> str:
-        """
-        Search for Instagram posts and social media content about a specific sake.
-        Use this tool to find visual content, reviews, and social discussions about sake.
-
-        Args:
-            sake_name: Name of the sake to search for on Instagram
-
-        Returns:
-            Instagram and social media content about the sake.
-        """
-        results = []
-
-        try:
-            # Search for Instagram content via web
-            ig_results = tavily_client.search(
-                query=f"{sake_name} 日本酒 sake site:instagram.com",
-                search_depth="basic",
-                max_results=5,
-            )
-
-            if ig_results.get("results"):
-                results.append("Instagram Content Found:")
-                for idx, result in enumerate(ig_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-                    content = result.get('content', '')
-                    if content:
-                        if len(content) > 300:
-                            content = content[:300] + "..."
-                        results.append(f"   Preview: {content}")
-
-            # Also search for general social media reviews
-            social_results = tavily_client.search(
-                query=f"{sake_name} sake review tasting notes",
-                search_depth="basic",
-                max_results=3,
-            )
-
-            if social_results.get("results"):
-                results.append("\n\nRelated Reviews & Content:")
-                for idx, result in enumerate(social_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-
-        except Exception as e:
-            results.append(f"Error searching social media: {str(e)}")
-
-        if not results:
-            return f"No Instagram or social media content found for '{sake_name}'."
-
-        return "\n".join(results)
-
-    return [search_sake_rankings, search_sake_info, search_sake_instagram]
+def _is_japanese(text: str) -> bool:
+    """Check if the text contains Japanese characters."""
+    for char in text:
+        if (
+            '\u3040' <= char <= '\u309f' or  # Hiragana
+            '\u30a0' <= char <= '\u30ff' or  # Katakana
+            '\u4e00' <= char <= '\u9fff'     # Kanji
+        ):
+            return True
+    return False
 
 
-def create_sake_agent(openai_api_key: str, tavily_api_key: str, instagram_token: Optional[str] = None):
+def create_sake_agent(
+    openai_api_key: str,
+    tavily_api_key: str,
+    instagram_token: Optional[str] = None,
+):
     """
     Create the Japanese Sake Guide agent using LangGraph.
 
     Args:
         openai_api_key: OpenAI API key
         tavily_api_key: Tavily API key
-        instagram_token: Optional Instagram access token
+        instagram_token: Optional Instagram access token for hashtag search
 
     Returns:
         Compiled LangGraph agent
@@ -252,8 +102,11 @@ def create_sake_agent(openai_api_key: str, tavily_api_key: str, instagram_token:
         api_key=openai_api_key,
     )
 
-    # Create tools
-    tools = create_sake_tools(tavily_api_key, instagram_token)
+    # Create tools from tools.py
+    tools = create_sake_tools(
+        tavily_api_key=tavily_api_key,
+        instagram_access_token=instagram_token,
+    )
 
     # Bind tools to the LLM
     llm_with_tools = llm.bind_tools(tools)
@@ -338,13 +191,7 @@ def run_sake_agent(
     messages.append(HumanMessage(content=user_message))
 
     # Detect language from user message
-    is_japanese = any(
-        '\u3040' <= c <= '\u309f' or
-        '\u30a0' <= c <= '\u30ff' or
-        '\u4e00' <= c <= '\u9fff'
-        for c in user_message
-    )
-    language = "ja" if is_japanese else "en"
+    language = "ja" if _is_japanese(user_message) else "en"
 
     # Run the agent
     result = agent.invoke({
