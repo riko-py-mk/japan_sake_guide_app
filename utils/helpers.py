@@ -84,7 +84,7 @@ EXAMPLE_PROMPTS = {
         "Tell me about Dassai 23",
         "Recommend a fruity sake for beginners",
         "What sake pairs well with sushi?",
-        "What's the difference between Junmai and Ginjo?",
+        "Search Instagram for #sake hashtag",
         "Find Instagram posts about Kubota sake",
     ],
     "ja": [
@@ -92,7 +92,7 @@ EXAMPLE_PROMPTS = {
         "獺祭23について教えてください",
         "初心者におすすめのフルーティな日本酒は？",
         "寿司に合う日本酒を教えてください",
-        "純米酒と吟醸酒の違いは何ですか？",
+        "#日本酒 のInstagram投稿を検索して",
         "久保田のInstagram投稿を探して",
     ]
 }
