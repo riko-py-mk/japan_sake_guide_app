@@ -3,6 +3,7 @@ Configuration settings for the Japanese Sake Guide App.
 """
 import streamlit as st
 from dataclasses import dataclass
+from typing import Optional
 
 
 @dataclass
@@ -11,6 +12,10 @@ class Settings:
 
     openai_api_key: str
     tavily_api_key: str
+
+    # Instagram credentials (optional - required for hashtag search via Instaloader)
+    instagram_username: Optional[str] = None
+    instagram_password: Optional[str] = None
 
     # Sake ranking sources
     sake_ranking_urls: tuple = (
@@ -26,8 +31,6 @@ class Settings:
     # Search configuration
     max_search_results: int = 5
 
-    # Note: Instagram search uses Instaloader (no API key required)
-
 
 def get_settings() -> Settings:
     """
@@ -42,6 +45,9 @@ def get_settings() -> Settings:
     try:
         openai_key = st.secrets.get("OPENAI_API_KEY", "")
         tavily_key = st.secrets.get("TAVILY_API_KEY", "")
+        # Instagram credentials are optional
+        instagram_user = st.secrets.get("INSTAGRAM_USERNAME", None)
+        instagram_pass = st.secrets.get("INSTAGRAM_PASSWORD", None)
 
         if not openai_key:
             raise KeyError("OPENAI_API_KEY is required")
@@ -51,6 +57,8 @@ def get_settings() -> Settings:
         return Settings(
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
+            instagram_username=instagram_user,
+            instagram_password=instagram_pass,
         )
     except Exception as e:
         raise KeyError(f"Failed to load settings: {e}")

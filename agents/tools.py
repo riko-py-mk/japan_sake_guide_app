@@ -56,17 +56,40 @@ def _sanitize_hashtag(text: str) -> str:
 
 def create_sake_tools(
     tavily_api_key: str,
+    instagram_username: Optional[str] = None,
+    instagram_password: Optional[str] = None,
 ) -> List[Callable]:
     """
     Create tools for the sake guide agent with API keys bound.
 
     Args:
         tavily_api_key: API key for Tavily search
+        instagram_username: Optional Instagram username for hashtag search
+        instagram_password: Optional Instagram password for hashtag search
 
     Returns:
         List of tool functions ready to use with LangGraph
     """
     tavily_client = TavilyClient(api_key=tavily_api_key)
+
+    # Create Instaloader instance if credentials provided
+    insta_loader = None
+    if instagram_username and instagram_password:
+        try:
+            insta_loader = instaloader.Instaloader(
+                download_pictures=False,
+                download_videos=False,
+                download_video_thumbnails=False,
+                download_geotags=False,
+                download_comments=False,
+                save_metadata=False,
+                compress_json=False,
+                quiet=True,
+            )
+            insta_loader.login(instagram_username, instagram_password)
+        except Exception as e:
+            # Login failed, will use web search fallback
+            insta_loader = None
 
     @tool
     def search_sake_rankings(query: str) -> str:
@@ -234,15 +257,18 @@ def create_sake_tools(
 
         results = []
 
-        # Try Instaloader for hashtag search
-        try:
-            instaloader_results = _search_instagram_hashtag_instaloader(sanitized_hashtag)
-            if instaloader_results:
-                results.append(instaloader_results)
-        except Exception as e:
-            results.append(f"Instaloader error: {str(e)}")
+        # Try Instaloader for hashtag search (requires login)
+        if insta_loader:
+            try:
+                instaloader_results = _search_instagram_hashtag_instaloader(
+                    insta_loader, sanitized_hashtag
+                )
+                if instaloader_results and "error" not in instaloader_results.lower():
+                    results.append(instaloader_results)
+            except Exception as e:
+                results.append(f"Instaloader error: {str(e)}")
 
-        # Fallback to web search for Instagram hashtag content if Instaloader returns no results
+        # Use web search as fallback or if Instaloader not configured
         if not results or all("error" in r.lower() for r in results if r):
             try:
                 # Search for the hashtag on Instagram via web
@@ -295,14 +321,19 @@ def create_sake_tools(
     ]
 
 
-def _search_instagram_hashtag_instaloader(hashtag: str, max_posts: int = 10) -> str:
+def _search_instagram_hashtag_instaloader(
+    loader: instaloader.Instaloader,
+    hashtag: str,
+    max_posts: int = 10,
+) -> str:
     """
     Search Instagram hashtags using Instaloader.
 
-    Instaloader allows searching Instagram without requiring an API token.
-    Note: Instagram may rate-limit or block requests if used too frequently.
+    Note: Hashtag search requires login. Instagram may rate-limit or block
+    requests if used too frequently. Use with caution as it may affect your account.
 
     Args:
+        loader: Authenticated Instaloader instance
         hashtag: Hashtag to search (without #)
         max_posts: Maximum number of posts to retrieve (default: 10)
 
@@ -310,19 +341,7 @@ def _search_instagram_hashtag_instaloader(hashtag: str, max_posts: int = 10) -> 
         Formatted string of Instagram results or error message
     """
     try:
-        # Create Instaloader instance with minimal settings
-        loader = instaloader.Instaloader(
-            download_pictures=False,
-            download_videos=False,
-            download_video_thumbnails=False,
-            download_geotags=False,
-            download_comments=False,
-            save_metadata=False,
-            compress_json=False,
-            quiet=True,
-        )
-
-        # Get hashtag posts
+        # Get hashtag posts (requires authenticated session)
         hashtag_obj = instaloader.Hashtag.from_name(loader.context, hashtag)
 
         output = [f"Instagram Posts for #{hashtag}:"]
@@ -362,6 +381,8 @@ def _search_instagram_hashtag_instaloader(hashtag: str, max_posts: int = 10) -> 
         return f"Instagram connection error: {str(e)}. Using web search fallback."
     except instaloader.exceptions.TooManyRequestsException:
         return "Instagram rate limit reached. Using web search fallback."
+    except instaloader.exceptions.LoginRequiredException:
+        return "Instagram login required for hashtag search. Using web search fallback."
     except Exception as e:
         return f"Instaloader error: {str(e)}"
 
