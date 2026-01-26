@@ -82,7 +82,6 @@ def _is_japanese(text: str) -> bool:
 def create_sake_agent(
     openai_api_key: str,
     tavily_api_key: str,
-    instagram_token: Optional[str] = None,
 ):
     """
     Create the Japanese Sake Guide agent using LangGraph.
@@ -90,7 +89,6 @@ def create_sake_agent(
     Args:
         openai_api_key: OpenAI API key
         tavily_api_key: Tavily API key
-        instagram_token: Optional Instagram access token for hashtag search
 
     Returns:
         Compiled LangGraph agent
@@ -102,10 +100,9 @@ def create_sake_agent(
         api_key=openai_api_key,
     )
 
-    # Create tools from tools.py
+    # Create tools from tools.py (Instagram search uses Instaloader, no API token needed)
     tools = create_sake_tools(
         tavily_api_key=tavily_api_key,
-        instagram_access_token=instagram_token,
     )
 
     # Bind tools to the LLM

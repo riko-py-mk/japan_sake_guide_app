@@ -4,9 +4,9 @@ Tools for the Japanese Sake Guide Agent.
 This module provides tools for searching sake information from:
 - Sake ranking websites (sakenowa.com, saketime.jp)
 - General web search via Tavily
-- Instagram posts and hashtag search
+- Instagram posts and hashtag search (via Instaloader)
 """
-import httpx
+import instaloader
 from typing import Optional, List, Callable
 from langchain_core.tools import tool
 from tavily import TavilyClient
@@ -56,14 +56,12 @@ def _sanitize_hashtag(text: str) -> str:
 
 def create_sake_tools(
     tavily_api_key: str,
-    instagram_access_token: Optional[str] = None,
 ) -> List[Callable]:
     """
     Create tools for the sake guide agent with API keys bound.
 
     Args:
         tavily_api_key: API key for Tavily search
-        instagram_access_token: Optional Instagram access token for hashtag search
 
     Returns:
         List of tool functions ready to use with LangGraph
@@ -236,55 +234,52 @@ def create_sake_tools(
 
         results = []
 
-        # Try Instagram Graph API if access token is available
-        if instagram_access_token:
-            try:
-                api_results = _search_instagram_hashtag_api(
-                    sanitized_hashtag,
-                    instagram_access_token,
-                )
-                if api_results:
-                    results.append(api_results)
-            except Exception as e:
-                results.append(f"Instagram API error: {str(e)}")
-
-        # Always also do web search for Instagram hashtag content
+        # Try Instaloader for hashtag search
         try:
-            # Search for the hashtag on Instagram via web
-            ig_web_results = tavily_client.search(
-                query=f"#{sanitized_hashtag} site:instagram.com 日本酒 sake",
-                search_depth="advanced",
-                max_results=8,
-            )
+            instaloader_results = _search_instagram_hashtag_instaloader(sanitized_hashtag)
+            if instaloader_results:
+                results.append(instaloader_results)
+        except Exception as e:
+            results.append(f"Instaloader error: {str(e)}")
 
-            if ig_web_results.get("results"):
-                results.append(f"\nInstagram posts with #{sanitized_hashtag}:")
-                for idx, result in enumerate(ig_web_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-                    content = result.get('content', '')
-                    if content:
-                        if len(content) > 400:
-                            content = content[:400] + "..."
-                        results.append(f"   Content: {content}")
-
-            # Also search for related hashtags
-            related_hashtags = _get_related_sake_hashtags(clean_hashtag)
-            if related_hashtags:
-                related_results = tavily_client.search(
-                    query=f"{' '.join(['#' + h for h in related_hashtags])} site:instagram.com",
-                    search_depth="basic",
-                    max_results=4,
+        # Fallback to web search for Instagram hashtag content if Instaloader returns no results
+        if not results or all("error" in r.lower() for r in results if r):
+            try:
+                # Search for the hashtag on Instagram via web
+                ig_web_results = tavily_client.search(
+                    query=f"#{sanitized_hashtag} site:instagram.com 日本酒 sake",
+                    search_depth="advanced",
+                    max_results=8,
                 )
 
-                if related_results.get("results"):
-                    results.append(f"\n\nRelated hashtag content ({', '.join(['#' + h for h in related_hashtags])}):")
-                    for idx, result in enumerate(related_results.get("results", []), 1):
+                if ig_web_results.get("results"):
+                    results.append(f"\nInstagram posts with #{sanitized_hashtag} (via web search):")
+                    for idx, result in enumerate(ig_web_results.get("results", []), 1):
                         results.append(f"\n{idx}. {result.get('title', 'No title')}")
                         results.append(f"   URL: {result.get('url', '')}")
+                        content = result.get('content', '')
+                        if content:
+                            if len(content) > 400:
+                                content = content[:400] + "..."
+                            results.append(f"   Content: {content}")
 
-        except Exception as e:
-            results.append(f"Web search error: {str(e)}")
+                # Also search for related hashtags
+                related_hashtags = _get_related_sake_hashtags(clean_hashtag)
+                if related_hashtags:
+                    related_results = tavily_client.search(
+                        query=f"{' '.join(['#' + h for h in related_hashtags])} site:instagram.com",
+                        search_depth="basic",
+                        max_results=4,
+                    )
+
+                    if related_results.get("results"):
+                        results.append(f"\n\nRelated hashtag content ({', '.join(['#' + h for h in related_hashtags])}):")
+                        for idx, result in enumerate(related_results.get("results", []), 1):
+                            results.append(f"\n{idx}. {result.get('title', 'No title')}")
+                            results.append(f"   URL: {result.get('url', '')}")
+
+            except Exception as e:
+                results.append(f"Web search error: {str(e)}")
 
         if not results:
             return f"No Instagram content found for hashtag #{sanitized_hashtag}."
@@ -300,93 +295,75 @@ def create_sake_tools(
     ]
 
 
-def _search_instagram_hashtag_api(hashtag: str, access_token: str) -> str:
+def _search_instagram_hashtag_instaloader(hashtag: str, max_posts: int = 10) -> str:
     """
-    Search Instagram hashtags using the Instagram Graph API.
+    Search Instagram hashtags using Instaloader.
 
-    Note: This requires an Instagram Business or Creator account with proper permissions.
-    The Instagram Basic Display API does not support hashtag search.
-
-    For full hashtag search, you need:
-    1. Facebook Developer account
-    2. Instagram Business/Creator account connected to a Facebook Page
-    3. instagram_basic permission and instagram_manage_comments (for hashtag search)
+    Instaloader allows searching Instagram without requiring an API token.
+    Note: Instagram may rate-limit or block requests if used too frequently.
 
     Args:
         hashtag: Hashtag to search (without #)
-        access_token: Instagram Graph API access token
+        max_posts: Maximum number of posts to retrieve (default: 10)
 
     Returns:
         Formatted string of Instagram results or error message
     """
-    base_url = "https://graph.facebook.com/v18.0"
-
     try:
-        # Step 1: Get the hashtag ID
-        hashtag_search_url = f"{base_url}/ig_hashtag_search"
-        params = {
-            "user_id": "me",  # This needs to be replaced with actual user ID
-            "q": hashtag,
-            "access_token": access_token,
-        }
+        # Create Instaloader instance with minimal settings
+        loader = instaloader.Instaloader(
+            download_pictures=False,
+            download_videos=False,
+            download_video_thumbnails=False,
+            download_geotags=False,
+            download_comments=False,
+            save_metadata=False,
+            compress_json=False,
+            quiet=True,
+        )
 
-        with httpx.Client(timeout=30.0) as client:
-            # Search for hashtag ID
-            response = client.get(hashtag_search_url, params=params)
+        # Get hashtag posts
+        hashtag_obj = instaloader.Hashtag.from_name(loader.context, hashtag)
 
-            if response.status_code != 200:
-                # API might not be available or token doesn't have permissions
-                return (
-                    f"Instagram API: Hashtag search for #{hashtag} requires Business account. "
-                    "Using web search as fallback."
-                )
+        output = [f"Instagram Posts for #{hashtag}:"]
+        post_count = 0
 
-            data = response.json()
+        for post in hashtag_obj.get_posts():
+            if post_count >= max_posts:
+                break
 
-            if not data.get("data"):
-                return f"No Instagram hashtag found for #{hashtag}."
+            post_count += 1
+            output.append(f"\n{post_count}. @{post.owner_username}")
+            output.append(f"   Link: https://www.instagram.com/p/{post.shortcode}/")
+            output.append(f"   Likes: {post.likes}")
+            output.append(f"   Posted: {post.date_utc.strftime('%Y-%m-%d %H:%M UTC')}")
 
-            hashtag_id = data["data"][0]["id"]
+            caption = post.caption if post.caption else ""
+            if caption:
+                if len(caption) > 200:
+                    caption = caption[:200] + "..."
+                output.append(f"   Caption: {caption}")
 
-            # Step 2: Get recent media for the hashtag
-            media_url = f"{base_url}/{hashtag_id}/recent_media"
-            media_params = {
-                "user_id": "me",
-                "fields": "id,caption,media_type,media_url,permalink,timestamp",
-                "access_token": access_token,
-                "limit": 10,
-            }
+            # Extract hashtags from the post
+            post_hashtags = post.caption_hashtags if post.caption_hashtags else []
+            if post_hashtags:
+                display_hashtags = post_hashtags[:5]  # Show max 5 hashtags
+                output.append(f"   Hashtags: {', '.join(['#' + h for h in display_hashtags])}")
 
-            media_response = client.get(media_url, params=media_params)
+        if post_count == 0:
+            return f"No posts found for #{hashtag}."
 
-            if media_response.status_code != 200:
-                return f"Could not fetch media for #{hashtag}."
+        output.append(f"\n\nTotal posts shown: {post_count}")
+        return "\n".join(output)
 
-            media_data = media_response.json()
-            posts = media_data.get("data", [])
-
-            if not posts:
-                return f"No recent posts found for #{hashtag}."
-
-            # Format results
-            output = [f"Instagram API Results for #{hashtag}:"]
-            for idx, post in enumerate(posts[:10], 1):
-                output.append(f"\n{idx}. Post ID: {post.get('id', 'N/A')}")
-                output.append(f"   Type: {post.get('media_type', 'N/A')}")
-                output.append(f"   Link: {post.get('permalink', 'N/A')}")
-                caption = post.get('caption', '')
-                if caption:
-                    if len(caption) > 200:
-                        caption = caption[:200] + "..."
-                    output.append(f"   Caption: {caption}")
-                output.append(f"   Posted: {post.get('timestamp', 'N/A')}")
-
-            return "\n".join(output)
-
-    except httpx.TimeoutException:
-        return "Instagram API request timed out."
+    except instaloader.exceptions.QueryReturnedNotFoundException:
+        return f"Hashtag #{hashtag} not found on Instagram."
+    except instaloader.exceptions.ConnectionException as e:
+        return f"Instagram connection error: {str(e)}. Using web search fallback."
+    except instaloader.exceptions.TooManyRequestsException:
+        return "Instagram rate limit reached. Using web search fallback."
     except Exception as e:
-        return f"Instagram API error: {str(e)}"
+        return f"Instaloader error: {str(e)}"
 
 
 def _get_related_sake_hashtags(hashtag: str) -> List[str]:

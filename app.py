@@ -69,12 +69,10 @@ def initialize_agent():
     if "agent" not in st.session_state:
         openai_key = st.secrets.get("OPENAI_API_KEY", "")
         tavily_key = st.secrets.get("TAVILY_API_KEY", "")
-        instagram_token = st.secrets.get("INSTAGRAM_ACCESS_TOKEN", None)
 
         st.session_state.agent = create_sake_agent(
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
-            instagram_token=instagram_token,
         )
 
 
@@ -115,7 +113,7 @@ def render_sidebar():
         st.subheader("Data Sources | データソース")
         st.caption("• [Sakenowa](https://sakenowa.com/en/ranking)")
         st.caption("• [Saketime](https://www.saketime.jp/ranking/)")
-        st.caption("• Instagram (via search)")
+        st.caption("• Instagram (via [Instaloader](https://instaloader.github.io/))")
 
         st.divider()
 
@@ -218,9 +216,9 @@ def main():
         st.info(
             "To use this app, you need to configure API keys in Streamlit secrets:\n\n"
             "1. **OPENAI_API_KEY**: Get from [OpenAI](https://platform.openai.com/api-keys)\n"
-            "2. **TAVILY_API_KEY**: Get from [Tavily](https://tavily.com/)\n"
-            "3. **INSTAGRAM_ACCESS_TOKEN** (optional): For Instagram search\n\n"
-            "Add these to `.streamlit/secrets.toml` or in Streamlit Cloud settings."
+            "2. **TAVILY_API_KEY**: Get from [Tavily](https://tavily.com/)\n\n"
+            "Add these to `.streamlit/secrets.toml` or in Streamlit Cloud settings.\n\n"
+            "Instagram search uses Instaloader (no API key required)."
         )
         return
 

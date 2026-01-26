@@ -12,7 +12,7 @@ A Streamlit web application that uses an AI agent to help users discover and lea
 - **Agent Framework**: LangGraph (from LangChain)
 - **LLM**: OpenAI GPT-4o
 - **Web Search**: Tavily API
-- **Social Media**: Instagram Graph API (optional)
+- **Social Media**: Instagram via Instaloader (no API key required)
 - **Deployment**: Streamlit Cloud
 
 ## Project Structure
@@ -46,15 +46,16 @@ japan_sake_guide_app/
 All tools are defined in `tools.py` and created via `create_sake_tools()` factory function:
 
 ```python
-def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str] = None) -> List[Callable]:
+def create_sake_tools(tavily_api_key: str) -> List[Callable]:
     # Returns list of @tool decorated functions with API keys bound via closure
+    # Instagram search uses Instaloader (no API key required)
 ```
 
 **Available Tools:**
 1. `search_sake_rankings` - Searches sakenowa.com and saketime.jp
 2. `search_sake_info` - Detailed info about specific sake
-3. `search_sake_instagram` - Instagram posts about a sake brand
-4. `search_instagram_hashtag` - Hashtag-based Instagram search
+3. `search_sake_instagram` - Instagram posts about a sake brand (via web search)
+4. `search_instagram_hashtag` - Hashtag-based Instagram search (via Instaloader)
 
 ### Agent Workflow (agents/sake_agent.py)
 
@@ -116,8 +117,9 @@ Required secrets (in `.streamlit/secrets.toml` or Streamlit Cloud):
 ```toml
 OPENAI_API_KEY = "sk-..."
 TAVILY_API_KEY = "tvly-..."
-INSTAGRAM_ACCESS_TOKEN = "..."  # Optional
 ```
+
+Note: Instagram search uses Instaloader which doesn't require an API key.
 
 ### Running Locally
 
