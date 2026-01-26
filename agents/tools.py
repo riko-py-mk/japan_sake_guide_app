@@ -4,12 +4,20 @@ Tools for the Japanese Sake Guide Agent.
 This module provides tools for searching sake information from:
 - Sake ranking websites (sakenowa.com, saketime.jp)
 - General web search via Tavily
-- Instagram posts and hashtag search
+- Social media posts via snscrape (Twitter, Instagram, Facebook)
 """
-import httpx
 from typing import Optional, List, Callable
 from langchain_core.tools import tool
 from tavily import TavilyClient
+
+# snscrape imports
+try:
+    import snscrape.modules.twitter as sntwitter
+    import snscrape.modules.instagram as sninstagram
+    import snscrape.modules.facebook as snfacebook
+    SNSCRAPE_AVAILABLE = True
+except ImportError:
+    SNSCRAPE_AVAILABLE = False
 
 
 def _is_japanese(text: str) -> bool:
@@ -34,7 +42,7 @@ def _is_japanese(text: str) -> bool:
 
 def _sanitize_hashtag(text: str) -> str:
     """
-    Convert text to a valid Instagram hashtag format.
+    Convert text to a valid hashtag format.
 
     Args:
         text: Text to convert to hashtag
@@ -56,14 +64,14 @@ def _sanitize_hashtag(text: str) -> str:
 
 def create_sake_tools(
     tavily_api_key: str,
-    instagram_access_token: Optional[str] = None,
+    instagram_access_token: Optional[str] = None,  # Kept for backward compatibility, not used
 ) -> List[Callable]:
     """
     Create tools for the sake guide agent with API keys bound.
 
     Args:
         tavily_api_key: API key for Tavily search
-        instagram_access_token: Optional Instagram access token for hashtag search
+        instagram_access_token: Deprecated, kept for backward compatibility
 
     Returns:
         List of tool functions ready to use with LangGraph
@@ -165,129 +173,138 @@ def create_sake_tools(
             return f"Error searching sake info: {str(e)}"
 
     @tool
-    def search_sake_instagram(sake_name: str) -> str:
+    def search_social_media_hashtag(hashtag: str, platforms: str = "all") -> str:
         """
-        Search for Instagram posts and social media content about a specific sake.
-        Use this tool to find visual content, reviews, and social discussions about sake.
-
-        Args:
-            sake_name: Name of the sake to search for on Instagram
-
-        Returns:
-            Instagram and social media content about the sake.
-        """
-        results = []
-
-        try:
-            # Search for Instagram content via web
-            ig_results = tavily_client.search(
-                query=f"{sake_name} 日本酒 sake site:instagram.com",
-                search_depth="basic",
-                max_results=5,
-            )
-
-            if ig_results.get("results"):
-                results.append("Instagram Content Found:")
-                for idx, result in enumerate(ig_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-                    content = result.get('content', '')
-                    if content:
-                        if len(content) > 300:
-                            content = content[:300] + "..."
-                        results.append(f"   Preview: {content}")
-
-            # Also search for general social media reviews
-            social_results = tavily_client.search(
-                query=f"{sake_name} sake review tasting notes",
-                search_depth="basic",
-                max_results=3,
-            )
-
-            if social_results.get("results"):
-                results.append("\n\nRelated Reviews & Content:")
-                for idx, result in enumerate(social_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-
-        except Exception as e:
-            results.append(f"Error searching social media: {str(e)}")
-
-        if not results:
-            return f"No Instagram or social media content found for '{sake_name}'."
-
-        return "\n".join(results)
-
-    @tool
-    def search_instagram_hashtag(hashtag: str) -> str:
-        """
-        Search for Instagram posts by hashtag related to Japanese sake.
-        Use this tool when users want to find Instagram posts with specific hashtags like #日本酒, #sake, or sake brand names.
+        Search for social media posts by hashtag related to Japanese sake using snscrape.
+        Searches Twitter, Instagram, and Facebook for posts with the specified hashtag.
 
         Args:
             hashtag: Hashtag to search for (with or without #). Examples: "日本酒", "sake", "獺祭", "dassai"
+            platforms: Which platforms to search: "all", "twitter", "instagram", "facebook", or comma-separated like "twitter,instagram"
 
         Returns:
-            Instagram posts and content found with the specified hashtag.
+            Social media posts found with the specified hashtag from Twitter, Instagram, and Facebook.
         """
         # Clean up the hashtag
         clean_hashtag = hashtag.lstrip('#')
         sanitized_hashtag = _sanitize_hashtag(clean_hashtag)
 
+        if not SNSCRAPE_AVAILABLE:
+            return "Error: snscrape library is not installed. Please install it with: pip install snscrape"
+
         results = []
+        platform_list = [p.strip().lower() for p in platforms.split(",")] if platforms != "all" else ["twitter", "instagram", "facebook"]
 
-        # Try Instagram Graph API if access token is available
-        if instagram_access_token:
-            try:
-                api_results = _search_instagram_hashtag_api(
-                    sanitized_hashtag,
-                    instagram_access_token,
-                )
-                if api_results:
-                    results.append(api_results)
-            except Exception as e:
-                results.append(f"Instagram API error: {str(e)}")
+        # Search Twitter
+        if "twitter" in platform_list or "all" in platform_list:
+            twitter_results = _search_twitter_hashtag(sanitized_hashtag)
+            if twitter_results:
+                results.append(twitter_results)
 
-        # Always also do web search for Instagram hashtag content
-        try:
-            # Search for the hashtag on Instagram via web
-            ig_web_results = tavily_client.search(
-                query=f"#{sanitized_hashtag} site:instagram.com 日本酒 sake",
-                search_depth="advanced",
-                max_results=8,
-            )
+        # Search Instagram
+        if "instagram" in platform_list or "all" in platform_list:
+            instagram_results = _search_instagram_hashtag(sanitized_hashtag)
+            if instagram_results:
+                results.append(instagram_results)
 
-            if ig_web_results.get("results"):
-                results.append(f"\nInstagram posts with #{sanitized_hashtag}:")
-                for idx, result in enumerate(ig_web_results.get("results", []), 1):
-                    results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                    results.append(f"   URL: {result.get('url', '')}")
-                    content = result.get('content', '')
-                    if content:
-                        if len(content) > 400:
-                            content = content[:400] + "..."
-                        results.append(f"   Content: {content}")
-
-            # Also search for related hashtags
-            related_hashtags = _get_related_sake_hashtags(clean_hashtag)
-            if related_hashtags:
-                related_results = tavily_client.search(
-                    query=f"{' '.join(['#' + h for h in related_hashtags])} site:instagram.com",
-                    search_depth="basic",
-                    max_results=4,
-                )
-
-                if related_results.get("results"):
-                    results.append(f"\n\nRelated hashtag content ({', '.join(['#' + h for h in related_hashtags])}):")
-                    for idx, result in enumerate(related_results.get("results", []), 1):
-                        results.append(f"\n{idx}. {result.get('title', 'No title')}")
-                        results.append(f"   URL: {result.get('url', '')}")
-
-        except Exception as e:
-            results.append(f"Web search error: {str(e)}")
+        # Search Facebook
+        if "facebook" in platform_list or "all" in platform_list:
+            facebook_results = _search_facebook_hashtag(sanitized_hashtag)
+            if facebook_results:
+                results.append(facebook_results)
 
         if not results:
-            return f"No Instagram content found for hashtag #{sanitized_hashtag}."
+            return f"No social media content found for hashtag #{sanitized_hashtag}."
+
+        return "\n\n".join(results)
+
+    @tool
+    def search_twitter_sake(query: str) -> str:
+        """
+        Search Twitter for tweets about Japanese sake.
+        Use this tool to find discussions, reviews, and trends about sake on Twitter.
+
+        Args:
+            query: Search query for Twitter (e.g., "獺祭", "dassai sake", "日本酒 おすすめ")
+
+        Returns:
+            Recent tweets about the specified sake or topic.
+        """
+        if not SNSCRAPE_AVAILABLE:
+            return "Error: snscrape library is not installed. Please install it with: pip install snscrape"
+
+        is_japanese = _is_japanese(query)
+        if is_japanese:
+            search_query = f"{query} 日本酒"
+        else:
+            search_query = f"{query} sake OR 日本酒"
+
+        try:
+            results = []
+            results.append(f"Twitter search results for: {query}")
+            results.append("-" * 50)
+
+            count = 0
+            max_results = 10
+
+            scraper = sntwitter.TwitterSearchScraper(search_query)
+            for idx, tweet in enumerate(scraper.get_items()):
+                if count >= max_results:
+                    break
+
+                results.append(f"\n{idx + 1}. @{tweet.user.username}")
+                results.append(f"   Date: {tweet.date.strftime('%Y-%m-%d %H:%M')}")
+
+                content = tweet.rawContent
+                if len(content) > 300:
+                    content = content[:300] + "..."
+                results.append(f"   Tweet: {content}")
+                results.append(f"   URL: {tweet.url}")
+                results.append(f"   Likes: {tweet.likeCount} | Retweets: {tweet.retweetCount}")
+
+                count += 1
+
+            if count == 0:
+                return f"No tweets found for '{query}'."
+
+            return "\n".join(results)
+
+        except Exception as e:
+            return f"Error searching Twitter: {str(e)}"
+
+    @tool
+    def search_instagram_sake(sake_name: str) -> str:
+        """
+        Search for Instagram posts about a specific sake using snscrape.
+        Use this tool to find visual content, reviews, and photos about sake on Instagram.
+
+        Args:
+            sake_name: Name of the sake to search for on Instagram (e.g., "獺祭", "Dassai", "日本酒")
+
+        Returns:
+            Instagram posts and content about the specified sake.
+        """
+        if not SNSCRAPE_AVAILABLE:
+            return "Error: snscrape library is not installed. Please install it with: pip install snscrape"
+
+        sanitized_name = _sanitize_hashtag(sake_name)
+        results = []
+
+        # Search Instagram hashtag
+        instagram_results = _search_instagram_hashtag(sanitized_name)
+        if instagram_results:
+            results.append(instagram_results)
+
+        # Also search for related sake hashtags
+        related_hashtags = _get_related_sake_hashtags(sake_name)
+        for related_tag in related_hashtags[:2]:
+            related_results = _search_instagram_hashtag(related_tag, max_results=3)
+            if related_results:
+                results.append(f"\nRelated #{related_tag}:")
+                results.append(related_results)
+
+        if not results:
+            return f"No Instagram content found for '{sake_name}'."
 
         return "\n".join(results)
 
@@ -295,98 +312,142 @@ def create_sake_tools(
     return [
         search_sake_rankings,
         search_sake_info,
-        search_sake_instagram,
-        search_instagram_hashtag,
+        search_social_media_hashtag,
+        search_twitter_sake,
+        search_instagram_sake,
     ]
 
 
-def _search_instagram_hashtag_api(hashtag: str, access_token: str) -> str:
+def _search_twitter_hashtag(hashtag: str, max_results: int = 10) -> str:
     """
-    Search Instagram hashtags using the Instagram Graph API.
-
-    Note: This requires an Instagram Business or Creator account with proper permissions.
-    The Instagram Basic Display API does not support hashtag search.
-
-    For full hashtag search, you need:
-    1. Facebook Developer account
-    2. Instagram Business/Creator account connected to a Facebook Page
-    3. instagram_basic permission and instagram_manage_comments (for hashtag search)
+    Search Twitter for posts with a specific hashtag using snscrape.
 
     Args:
         hashtag: Hashtag to search (without #)
-        access_token: Instagram Graph API access token
+        max_results: Maximum number of results to return
 
     Returns:
-        Formatted string of Instagram results or error message
+        Formatted string of Twitter results
     """
-    base_url = "https://graph.facebook.com/v18.0"
-
     try:
-        # Step 1: Get the hashtag ID
-        hashtag_search_url = f"{base_url}/ig_hashtag_search"
-        params = {
-            "user_id": "me",  # This needs to be replaced with actual user ID
-            "q": hashtag,
-            "access_token": access_token,
-        }
+        results = []
+        results.append(f"Twitter posts with #{hashtag}:")
+        results.append("-" * 40)
 
-        with httpx.Client(timeout=30.0) as client:
-            # Search for hashtag ID
-            response = client.get(hashtag_search_url, params=params)
+        count = 0
+        scraper = sntwitter.TwitterHashtagScraper(hashtag)
 
-            if response.status_code != 200:
-                # API might not be available or token doesn't have permissions
-                return (
-                    f"Instagram API: Hashtag search for #{hashtag} requires Business account. "
-                    "Using web search as fallback."
-                )
+        for idx, tweet in enumerate(scraper.get_items()):
+            if count >= max_results:
+                break
 
-            data = response.json()
+            results.append(f"\n{idx + 1}. @{tweet.user.username}")
+            results.append(f"   Date: {tweet.date.strftime('%Y-%m-%d %H:%M')}")
 
-            if not data.get("data"):
-                return f"No Instagram hashtag found for #{hashtag}."
+            content = tweet.rawContent
+            if len(content) > 300:
+                content = content[:300] + "..."
+            results.append(f"   Tweet: {content}")
+            results.append(f"   URL: {tweet.url}")
+            results.append(f"   Likes: {tweet.likeCount} | Retweets: {tweet.retweetCount}")
 
-            hashtag_id = data["data"][0]["id"]
+            count += 1
 
-            # Step 2: Get recent media for the hashtag
-            media_url = f"{base_url}/{hashtag_id}/recent_media"
-            media_params = {
-                "user_id": "me",
-                "fields": "id,caption,media_type,media_url,permalink,timestamp",
-                "access_token": access_token,
-                "limit": 10,
-            }
+        if count == 0:
+            return f"No Twitter posts found for #{hashtag}."
 
-            media_response = client.get(media_url, params=media_params)
+        return "\n".join(results)
 
-            if media_response.status_code != 200:
-                return f"Could not fetch media for #{hashtag}."
-
-            media_data = media_response.json()
-            posts = media_data.get("data", [])
-
-            if not posts:
-                return f"No recent posts found for #{hashtag}."
-
-            # Format results
-            output = [f"Instagram API Results for #{hashtag}:"]
-            for idx, post in enumerate(posts[:10], 1):
-                output.append(f"\n{idx}. Post ID: {post.get('id', 'N/A')}")
-                output.append(f"   Type: {post.get('media_type', 'N/A')}")
-                output.append(f"   Link: {post.get('permalink', 'N/A')}")
-                caption = post.get('caption', '')
-                if caption:
-                    if len(caption) > 200:
-                        caption = caption[:200] + "..."
-                    output.append(f"   Caption: {caption}")
-                output.append(f"   Posted: {post.get('timestamp', 'N/A')}")
-
-            return "\n".join(output)
-
-    except httpx.TimeoutException:
-        return "Instagram API request timed out."
     except Exception as e:
-        return f"Instagram API error: {str(e)}"
+        return f"Twitter search error: {str(e)}"
+
+
+def _search_instagram_hashtag(hashtag: str, max_results: int = 10) -> str:
+    """
+    Search Instagram for posts with a specific hashtag using snscrape.
+
+    Args:
+        hashtag: Hashtag to search (without #)
+        max_results: Maximum number of results to return
+
+    Returns:
+        Formatted string of Instagram results
+    """
+    try:
+        results = []
+        results.append(f"Instagram posts with #{hashtag}:")
+        results.append("-" * 40)
+
+        count = 0
+        scraper = sninstagram.InstagramHashtagScraper(hashtag)
+
+        for idx, post in enumerate(scraper.get_items()):
+            if count >= max_results:
+                break
+
+            results.append(f"\n{idx + 1}. @{post.username}")
+            results.append(f"   Date: {post.date.strftime('%Y-%m-%d %H:%M') if post.date else 'N/A'}")
+
+            caption = post.caption or ""
+            if len(caption) > 300:
+                caption = caption[:300] + "..."
+            results.append(f"   Caption: {caption}")
+            results.append(f"   URL: {post.url}")
+            results.append(f"   Likes: {post.likes or 'N/A'} | Comments: {post.comments or 'N/A'}")
+
+            count += 1
+
+        if count == 0:
+            return f"No Instagram posts found for #{hashtag}."
+
+        return "\n".join(results)
+
+    except Exception as e:
+        return f"Instagram search error: {str(e)}"
+
+
+def _search_facebook_hashtag(hashtag: str, max_results: int = 10) -> str:
+    """
+    Search Facebook for posts with a specific hashtag using snscrape.
+
+    Args:
+        hashtag: Hashtag to search (without #)
+        max_results: Maximum number of results to return
+
+    Returns:
+        Formatted string of Facebook results
+    """
+    try:
+        results = []
+        results.append(f"Facebook posts with #{hashtag}:")
+        results.append("-" * 40)
+
+        count = 0
+        # Facebook hashtag search - note: Facebook access may be limited
+        scraper = snfacebook.FacebookHashtagScraper(hashtag)
+
+        for idx, post in enumerate(scraper.get_items()):
+            if count >= max_results:
+                break
+
+            results.append(f"\n{idx + 1}. Post ID: {post.postId if hasattr(post, 'postId') else 'N/A'}")
+            results.append(f"   Date: {post.date.strftime('%Y-%m-%d %H:%M') if hasattr(post, 'date') and post.date else 'N/A'}")
+
+            content = getattr(post, 'content', '') or getattr(post, 'text', '') or ""
+            if len(content) > 300:
+                content = content[:300] + "..."
+            results.append(f"   Content: {content}")
+            results.append(f"   URL: {post.url if hasattr(post, 'url') else 'N/A'}")
+
+            count += 1
+
+        if count == 0:
+            return f"No Facebook posts found for #{hashtag}. (Note: Facebook access may be limited)"
+
+        return "\n".join(results)
+
+    except Exception as e:
+        return f"Facebook search error: {str(e)}"
 
 
 def _get_related_sake_hashtags(hashtag: str) -> List[str]:
