@@ -8,7 +8,7 @@ import streamlit as st
 from typing import Optional
 
 from agents.sake_agent import create_sake_agent, run_sake_agent
-from utils.helpers import detect_language, EXAMPLE_PROMPTS, SAKE_TYPES
+from utils.helpers import detect_language, EXAMPLE_PROMPTS, SIDEBAR_EXAMPLE_PROMPTS
 
 
 # Page configuration
@@ -103,11 +103,18 @@ def render_sidebar():
 
         st.divider()
 
-        # Sake types information
-        st.subheader("Sake Types | 日本酒の種類")
+        # Example prompts by tool
         lang = st.session_state.language
-        for sake_type in SAKE_TYPES[lang]:
-            st.caption(f"• {sake_type}")
+        if lang == "en":
+            st.subheader("Example Prompts")
+        else:
+            st.subheader("質問の例")
+
+        prompts_by_tool = SIDEBAR_EXAMPLE_PROMPTS[lang]
+        for tool_name, prompts in prompts_by_tool.items():
+            st.caption(f"**{tool_name}**")
+            for prompt in prompts:
+                st.caption(f"• {prompt}")
 
         st.divider()
 
@@ -115,7 +122,7 @@ def render_sidebar():
         st.subheader("Data Sources | データソース")
         st.caption("• [Sakenowa](https://sakenowa.com/en/ranking)")
         st.caption("• [Saketime](https://www.saketime.jp/ranking/)")
-        st.caption("• Instagram (via search)")
+        st.caption("• Twitter/X, Instagram, Facebook")
 
         st.divider()
 
