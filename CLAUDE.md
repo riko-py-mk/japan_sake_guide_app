@@ -11,8 +11,7 @@ A Streamlit web application that uses an AI agent to help users discover and lea
 - **Frontend**: Streamlit
 - **Agent Framework**: LangGraph (from LangChain)
 - **LLM**: OpenAI GPT-4o
-- **Web Search**: Tavily API
-- **Social Media**: snscrape (Twitter, Instagram, Facebook)
+- **Web Search**: Tavily API (also used for social media content search)
 - **Deployment**: Streamlit Cloud
 
 ## Project Structure
@@ -29,7 +28,7 @@ japan_sake_guide_app/
 │   └── config.toml        # Streamlit theme and server config
 ├── agents/
 │   ├── __init__.py        # Exports: create_sake_tools, create_sake_agent, run_sake_agent
-│   ├── tools.py           # All agent tools (Tavily search, snscrape for social media)
+│   ├── tools.py           # All agent tools (Tavily search for web and social media)
 │   └── sake_agent.py      # LangGraph agent workflow
 ├── config/
 │   ├── __init__.py
@@ -53,9 +52,9 @@ def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str]
 **Available Tools:**
 1. `search_sake_rankings` - Searches sakenowa.com and saketime.jp
 2. `search_sake_info` - Detailed info about specific sake
-3. `search_social_media_hashtag` - Search Twitter, Instagram, and Facebook by hashtag using snscrape
-4. `search_twitter_sake` - Twitter search for sake discussions and trends
-5. `search_instagram_sake` - Instagram posts about a specific sake brand
+3. `search_social_media_hashtag` - Search Twitter/X, Instagram, and Facebook by hashtag via Tavily
+4. `search_twitter_sake` - Twitter/X search for sake discussions and trends via Tavily
+5. `search_instagram_sake` - Instagram posts about a specific sake brand via Tavily
 
 ### Agent Workflow (agents/sake_agent.py)
 
@@ -117,7 +116,6 @@ Required secrets (in `.streamlit/secrets.toml` or Streamlit Cloud):
 ```toml
 OPENAI_API_KEY = "sk-..."
 TAVILY_API_KEY = "tvly-..."
-# Note: snscrape does not require API keys for social media search
 ```
 
 ### Running Locally
