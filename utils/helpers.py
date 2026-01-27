@@ -53,46 +53,67 @@ def format_sake_response(response: str, language: str = "en") -> str:
     return response
 
 
-# Example sake types for UI suggestions
-SAKE_TYPES = {
-    "en": [
-        "Junmai - Pure rice sake",
-        "Honjozo - Added alcohol sake",
-        "Ginjo - Premium sake (40% polishing)",
-        "Daiginjo - Super premium sake (50%+ polishing)",
-        "Junmai Daiginjo - Pure rice super premium",
-        "Nigori - Cloudy/unfiltered sake",
-        "Nama - Unpasteurized sake",
-        "Sparkling sake",
-    ],
-    "ja": [
-        "純米酒 - 米と米麹だけで造った酒",
-        "本醸造 - 醸造アルコール添加",
-        "吟醸酒 - 精米歩合60%以下",
-        "大吟醸 - 精米歩合50%以下",
-        "純米大吟醸 - 米のみの大吟醸",
-        "にごり酒 - 濁った酒",
-        "生酒 - 火入れしていない酒",
-        "スパークリング日本酒",
-    ]
+# Example prompts organized by tool for the sidebar
+# Each tool has example prompts demonstrating its functionality
+SIDEBAR_EXAMPLE_PROMPTS = {
+    "en": {
+        "Sake Rankings": [
+            "What are the top-rated sake this year?",
+            "Best daiginjo sake recommendations",
+        ],
+        "Sake Info": [
+            "Tell me about Dassai 23",
+            "What is Kubota Manju like?",
+        ],
+        "Social Media Hashtags": [
+            "Search #sake hashtag on social media",
+            "Find posts with #nihonshu hashtag",
+        ],
+        "Twitter/X Search": [
+            "What are people saying about sake on Twitter?",
+            "Find sake reviews on X",
+        ],
+        "Instagram Search": [
+            "Find Instagram posts about Dassai",
+            "Search Instagram for Kubota sake",
+        ],
+    },
+    "ja": {
+        "日本酒ランキング": [
+            "今年人気の日本酒は何ですか？",
+            "おすすめの大吟醸を教えて",
+        ],
+        "日本酒情報": [
+            "獺祭23について教えてください",
+            "久保田 萬寿はどんな味？",
+        ],
+        "SNSハッシュタグ検索": [
+            "#日本酒 のSNS投稿を検索して",
+            "#酒蔵巡り の投稿を探して",
+        ],
+        "Twitter/X検索": [
+            "Twitterで日本酒の話題を探して",
+            "Xで日本酒レビューを検索",
+        ],
+        "Instagram検索": [
+            "獺祭のInstagram投稿を探して",
+            "久保田のInstagram投稿を検索",
+        ],
+    },
 }
 
-# Example prompts for the UI
+# Example prompts for the main area (kept for backward compatibility)
 EXAMPLE_PROMPTS = {
     "en": [
         "What are the top-rated sake this year?",
         "Tell me about Dassai 23",
-        "Recommend a fruity sake for beginners",
-        "What sake pairs well with sushi?",
-        "Search Instagram for #sake hashtag",
+        "Search #sake hashtag on social media",
         "Find Instagram posts about Kubota sake",
     ],
     "ja": [
         "今年人気の日本酒は何ですか？",
         "獺祭23について教えてください",
-        "初心者におすすめのフルーティな日本酒は？",
-        "寿司に合う日本酒を教えてください",
-        "#日本酒 のInstagram投稿を検索して",
+        "#日本酒 のSNS投稿を検索して",
         "久保田のInstagram投稿を探して",
-    ]
+    ],
 }
