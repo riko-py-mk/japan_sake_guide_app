@@ -80,6 +80,15 @@ def initialize_agent():
         instagram_token = st.secrets.get("INSTAGRAM_ACCESS_TOKEN", None)
         google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
 
+        # Store API key status in session state
+        st.session_state.google_maps_configured = bool(google_maps_key)
+
+        # Debug logging
+        print(f"DEBUG: Initializing agent")
+        print(f"  - OpenAI API key: {'✓ configured' if openai_key else '✗ missing'}")
+        print(f"  - Tavily API key: {'✓ configured' if tavily_key else '✗ missing'}")
+        print(f"  - Google Maps API key: {'✓ configured' if google_maps_key else '✗ missing'}")
+
         st.session_state.agent = create_sake_agent(
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
@@ -110,6 +119,18 @@ def render_sidebar():
             index=0 if st.session_state.language == "en" else 1,
         )
         st.session_state.language = "en" if language == "English" else "ja"
+
+        st.divider()
+
+        # API Configuration Status
+        st.subheader("API Status")
+        google_maps_status = st.session_state.get("google_maps_configured", False)
+        if google_maps_status:
+            st.success("✓ Google Maps API configured")
+            st.caption("Maps with photos and reviews enabled")
+        else:
+            st.warning("⚠️ Google Maps API not configured")
+            st.caption("Add GOOGLE_MAPS_API_KEY to enable maps")
 
         st.divider()
 
@@ -195,15 +216,20 @@ def extract_map_data(response_text: str) -> Optional[dict]:
         if match:
             json_str = match.group(1).strip()
             map_data = json.loads(json_str)
-            print(f"DEBUG: Successfully extracted map data with {len(map_data.get('locations', []))} locations")
+            print(f"✓ DEBUG: Successfully extracted map data with {len(map_data.get('locations', []))} locations")
+            st.info(f"🗺️ Map data found: {len(map_data.get('locations', []))} locations - preparing map...")
             return map_data
         else:
-            print("DEBUG: No MAP_DATA markers found in response")
+            print("✗ DEBUG: No MAP_DATA markers found in response")
+            # Check if response mentions map but doesn't have data
+            if "地図" in response_text or "map" in response_text.lower():
+                print("  Response mentions map but no MAP_DATA markers found")
+                st.warning("⚠️ Response mentions a map but map data wasn't included. This may mean the Google Maps API key is not configured.")
     except json.JSONDecodeError as e:
-        print(f"DEBUG: JSON decode error: {str(e)}")
+        print(f"✗ DEBUG: JSON decode error: {str(e)}")
         st.error(f"Error parsing map data JSON: {str(e)}")
     except Exception as e:
-        print(f"DEBUG: General error extracting map data: {str(e)}")
+        print(f"✗ DEBUG: General error extracting map data: {str(e)}")
         st.error(f"Error parsing map data: {str(e)}")
 
     return None
@@ -462,6 +488,13 @@ def process_user_input(user_input: str):
 
                 st.session_state.chat_history = new_history
 
+                # DEBUG: Show raw response in expander
+                with st.expander("🔍 Debug: Show raw response"):
+                    st.code(response[:2000], language="text")
+                    if len(response) > 2000:
+                        st.caption(f"... (response truncated, total length: {len(response)} chars)")
+                    st.caption(f"Contains 'MAP_DATA': {'MAP_DATA' in response}")
+
                 # Check for map data
                 map_data = extract_map_data(response)
 
@@ -474,6 +507,10 @@ def process_user_input(user_input: str):
                 # Display map if available
                 if map_data:
                     display_map(map_data)
+                else:
+                    # Show diagnostic if response looks like it should have a map
+                    if "地図" in response or "場所" in response or "location" in response.lower():
+                        st.info("💡 Tip: If you expected to see a map, please ensure GOOGLE_MAPS_API_KEY is configured in your secrets.")
 
                 # Add assistant message to display (with full response including map data)
                 st.session_state.messages.append({"role": "assistant", "content": response})
