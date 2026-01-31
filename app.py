@@ -51,6 +51,7 @@ st.markdown("""
 def check_api_keys() -> tuple[bool, str]:
     """
     Check if required API keys are configured.
+    Google Maps API is optional - the app will work without it but maps won't display.
 
     Returns:
         Tuple of (success, error_message)
@@ -63,8 +64,10 @@ def check_api_keys() -> tuple[bool, str]:
         return False, "OPENAI_API_KEY is not configured. Please add it to your Streamlit secrets."
     if not tavily_key:
         return False, "TAVILY_API_KEY is not configured. Please add it to your Streamlit secrets."
+
+    # Google Maps is optional
     if not google_maps_key:
-        return False, "GOOGLE_MAPS_API_KEY is not configured. Please add it to your Streamlit secrets."
+        print("WARNING: GOOGLE_MAPS_API_KEY not configured. Maps will not be displayed.")
 
     return True, ""
 
@@ -185,13 +188,22 @@ def extract_map_data(response_text: str) -> Optional[dict]:
     """
     try:
         # Look for MAP_DATA_START and MAP_DATA_END markers
-        pattern = r'MAP_DATA_START\s*\n(.*?)\nMAP_DATA_END'
+        # The pattern should match across multiple lines with any whitespace
+        pattern = r'MAP_DATA_START\s*(.*?)\s*MAP_DATA_END'
         match = re.search(pattern, response_text, re.DOTALL)
 
         if match:
             json_str = match.group(1).strip()
-            return json.loads(json_str)
+            map_data = json.loads(json_str)
+            print(f"DEBUG: Successfully extracted map data with {len(map_data.get('locations', []))} locations")
+            return map_data
+        else:
+            print("DEBUG: No MAP_DATA markers found in response")
+    except json.JSONDecodeError as e:
+        print(f"DEBUG: JSON decode error: {str(e)}")
+        st.error(f"Error parsing map data JSON: {str(e)}")
     except Exception as e:
+        print(f"DEBUG: General error extracting map data: {str(e)}")
         st.error(f"Error parsing map data: {str(e)}")
 
     return None
@@ -206,9 +218,16 @@ def display_map(map_data: dict):
     """
     import streamlit.components.v1 as components
 
+    print(f"DEBUG: display_map called with data: {map_data.keys() if map_data else 'None'}")
+
     google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
     if not google_maps_key:
-        st.warning("Google Maps API key not configured. Cannot display map.")
+        st.warning(
+            "📍 **Google Maps API key not configured.**\n\n"
+            "To display interactive maps with photos and reviews, please add your Google Maps API key to `.streamlit/secrets.toml`\n\n"
+            "Get your API key from the [Google Cloud Console](https://console.cloud.google.com/)"
+        )
+        print("DEBUG: No Google Maps API key found")
         return
 
     search_location = map_data.get("search_location", "Tokyo, Japan")
@@ -216,7 +235,11 @@ def display_map(map_data: dict):
     center_lat = map_data.get("center_lat", 35.6762)
     center_lng = map_data.get("center_lng", 139.6503)
 
+    print(f"DEBUG: Map will show {len(locations)} locations at {center_lat}, {center_lng}")
+
     if not locations:
+        st.info("No locations found to display on map.")
+        print("DEBUG: No locations in map data")
         return
 
     # Build markers data for JavaScript
@@ -384,7 +407,13 @@ def display_map(map_data: dict):
 
     # Display the map
     st.subheader("📍 Map View with Photos & Reviews")
-    components.html(map_html, height=650)
+    try:
+        print(f"DEBUG: Attempting to render map HTML (length: {len(map_html)} chars)")
+        components.html(map_html, height=650)
+        print("DEBUG: Map HTML rendered successfully")
+    except Exception as e:
+        st.error(f"Error displaying map: {str(e)}")
+        print(f"DEBUG: Error rendering map: {str(e)}")
 
 
 def render_chat():
@@ -474,10 +503,12 @@ def main():
         st.error(error_message)
         st.info(
             "To use this app, you need to configure API keys in Streamlit secrets:\n\n"
+            "**Required:**\n"
             "1. **OPENAI_API_KEY**: Get from [OpenAI](https://platform.openai.com/api-keys)\n"
-            "2. **TAVILY_API_KEY**: Get from [Tavily](https://tavily.com/)\n"
-            "3. **GOOGLE_MAPS_API_KEY**: Get from [Google Cloud Console](https://console.cloud.google.com/)\n"
-            "4. **INSTAGRAM_ACCESS_TOKEN** (optional): For Instagram search\n\n"
+            "2. **TAVILY_API_KEY**: Get from [Tavily](https://tavily.com/)\n\n"
+            "**Optional (for enhanced features):**\n"
+            "3. **GOOGLE_MAPS_API_KEY**: Get from [Google Cloud Console](https://console.cloud.google.com/) - Required for interactive maps with photos and reviews\n"
+            "4. **INSTAGRAM_ACCESS_TOKEN**: For enhanced Instagram search\n\n"
             "Add these to `.streamlit/secrets.toml` or in Streamlit Cloud settings."
         )
         return
