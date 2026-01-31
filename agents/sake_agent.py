@@ -98,6 +98,45 @@ def _is_japanese(text: str) -> bool:
     return False
 
 
+def _is_location_query(text: str) -> bool:
+    """
+    Check if the query is asking about locations/places to buy or drink sake.
+
+    Returns:
+        True if the query appears to be location-related
+    """
+    text_lower = text.lower()
+
+    # Japanese location keywords
+    japanese_keywords = [
+        "場所", "店", "販売店", "酒屋", "居酒屋", "バー", "レストラン",
+        "どこ", "探して", "教えて", "おすすめの店", "飲める", "買える",
+        "近く", "付近", "周辺", "エリア", "地域", "地図",
+        "東京", "京都", "大阪", "名古屋", "福岡", "札幌", "横浜", "神戸",
+        "新宿", "渋谷", "銀座", "浅草", "六本木", "池袋",
+    ]
+
+    # English location keywords
+    english_keywords = [
+        "where", "location", "shop", "store", "restaurant", "bar", "izakaya",
+        "find", "buy", "drink", "near", "around", "area", "place", "map",
+        "tokyo", "kyoto", "osaka", "nagoya", "fukuoka", "sapporo", "yokohama", "kobe",
+        "shinjuku", "shibuya", "ginza", "asakusa", "roppongi", "ikebukuro",
+    ]
+
+    # Check for Japanese keywords
+    for keyword in japanese_keywords:
+        if keyword in text:
+            return True
+
+    # Check for English keywords
+    for keyword in english_keywords:
+        if keyword in text_lower:
+            return True
+
+    return False
+
+
 def create_sake_agent(
     openai_api_key: str,
     tavily_api_key: str,
@@ -130,8 +169,14 @@ def create_sake_agent(
         google_maps_api_key=google_maps_api_key,
     )
 
-    # Bind tools to the LLM
+    # Bind tools to the LLM (default - LLM decides whether to use tools)
     llm_with_tools = llm.bind_tools(tools)
+
+    # Bind tools with forced location tool (for location queries)
+    llm_with_forced_location_tool = llm.bind_tools(
+        tools,
+        tool_choice={"type": "function", "function": {"name": "search_sake_locations"}}
+    )
 
     # Create the tool node
     tool_node = ToolNode(tools)
@@ -156,7 +201,24 @@ def create_sake_agent(
         if not any(isinstance(m, SystemMessage) for m in messages):
             messages = [SystemMessage(content=SAKE_GUIDE_SYSTEM_PROMPT)] + list(messages)
 
-        response = llm_with_tools.invoke(messages)
+        # Check if this is a location query from the user
+        # Only force tool usage on the first call (when we haven't made tool calls yet)
+        last_human_message = None
+        has_tool_calls_already = False
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                last_human_message = msg.content
+                break
+            if hasattr(msg, "tool_calls") and msg.tool_calls:
+                has_tool_calls_already = True
+                break
+
+        # Force location tool if it's a location query and we haven't made tool calls yet
+        if last_human_message and _is_location_query(last_human_message) and not has_tool_calls_already:
+            response = llm_with_forced_location_tool.invoke(messages)
+        else:
+            response = llm_with_tools.invoke(messages)
+
         return {"messages": [response]}
 
     # Build the graph
