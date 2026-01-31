@@ -393,12 +393,12 @@ def display_map(map_data: dict):
 
                 // Google Maps link
                 if (location.google_maps_url) {{
-                    html += `<div class="contact">🗺️ <a href="${{location.google_maps_url}}" target="_blank" style="color: #1a73e8; text-decoration: none;">View on Google Maps</a></div>`;
+                    html += `<div class="contact">🗺️ <span onclick="window.open('${{location.google_maps_url}}', '_blank')" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">View on Google Maps</span></div>`;
                 }}
 
                 // Website
                 if (location.website) {{
-                    html += `<div class="contact">🌐 <a href="${{location.website}}" target="_blank" style="color: #1a73e8; text-decoration: none;">Website</a></div>`;
+                    html += `<div class="contact">🌐 <span onclick="window.open('${{location.website}}', '_blank')" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">Website</span></div>`;
                 }}
 
                 // Phone
