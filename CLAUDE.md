@@ -45,7 +45,7 @@ japan_sake_guide_app/
 All tools are defined in `tools.py` and created via `create_sake_tools()` factory function:
 
 ```python
-def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str] = None) -> List[Callable]:
+def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str] = None, google_maps_api_key: Optional[str] = None) -> List[Callable]:
     # Returns list of @tool decorated functions with API keys bound via closure
 ```
 
@@ -55,6 +55,8 @@ def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str]
 3. `search_social_media_hashtag` - Search Twitter/X, Instagram, and Facebook by hashtag via Tavily
 4. `search_twitter_sake` - Twitter/X search for sake discussions and trends via Tavily
 5. `search_instagram_sake` - Instagram posts about a specific sake brand via Tavily
+6. `search_restaurants_with_sake` - Find restaurants/bars that serve a specific sake brand (e.g., "写楽", "獺祭") using Google Places API with interactive map, photos, and clickable Google Maps links
+7. `search_sake_locations` - Find general sake shops, restaurants, or izakayas in a location using Google Places API with interactive map
 
 ### Agent Workflow (agents/sake_agent.py)
 
@@ -116,7 +118,10 @@ Required secrets (in `.streamlit/secrets.toml` or Streamlit Cloud):
 ```toml
 OPENAI_API_KEY = "sk-..."
 TAVILY_API_KEY = "tvly-..."
+GOOGLE_MAPS_API_KEY = "AIza..."  # Optional but required for map features
 ```
+
+Note: Google Maps API key is optional but required for location-based features (searching restaurants by sake brand or general sake locations).
 
 ### Running Locally
 
@@ -175,6 +180,9 @@ When testing the agent:
 5. Test Twitter search for sake discussions
 6. Test Instagram search for sake-related photos and posts
 7. Test cross-platform search using search_social_media_hashtag
+8. Test restaurant searches by specific sake brand (e.g., "写楽が飲める店は？", "Where can I drink Dassai in Tokyo?")
+9. Test general sake location searches (e.g., "東京の日本酒バー", "sake shops in Kyoto")
+10. Verify map displays correctly with photos, reviews, and clickable Google Maps links
 
 ## Future Enhancement Ideas
 

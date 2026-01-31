@@ -257,11 +257,14 @@ def display_map(map_data: dict):
         return
 
     search_location = map_data.get("search_location", "Tokyo, Japan")
+    sake_name = map_data.get("sake_name", None)  # Get sake name if searching for specific sake
     locations = map_data.get("locations", [])
     center_lat = map_data.get("center_lat", 35.6762)
     center_lng = map_data.get("center_lng", 139.6503)
 
     print(f"DEBUG: Map will show {len(locations)} locations at {center_lat}, {center_lng}")
+    if sake_name:
+        print(f"DEBUG: Searching for restaurants serving: {sake_name}")
 
     if not locations:
         st.info("No locations found to display on map.")
@@ -371,8 +374,11 @@ def display_map(map_data: dict):
             function createInfoWindowContent(location) {{
                 let html = '<div class="info-window">';
 
-                // Title
+                // Title with sake name badge if applicable
                 html += `<h3>${{location.name}}</h3>`;
+                if (location.sake_name) {{
+                    html += `<div style="background: #c41e3a; color: white; padding: 3px 8px; border-radius: 4px; display: inline-block; font-size: 11px; margin-bottom: 8px;">🍶 Serving ${{location.sake_name}}</div>`;
+                }}
 
                 // Rating
                 if (location.rating && location.rating > 0) {{
@@ -385,9 +391,14 @@ def display_map(map_data: dict):
                     html += `<div class="address">📍 ${{location.address}}</div>`;
                 }}
 
+                // Google Maps link
+                if (location.google_maps_url) {{
+                    html += `<div class="contact">🗺️ <a href="${{location.google_maps_url}}" target="_blank" style="color: #1a73e8; text-decoration: none;">View on Google Maps</a></div>`;
+                }}
+
                 // Website
                 if (location.website) {{
-                    html += `<div class="contact">🌐 <a href="${{location.website}}" target="_blank">Website</a></div>`;
+                    html += `<div class="contact">🌐 <a href="${{location.website}}" target="_blank" style="color: #1a73e8; text-decoration: none;">Website</a></div>`;
                 }}
 
                 // Phone
@@ -432,7 +443,11 @@ def display_map(map_data: dict):
     """
 
     # Display the map
-    st.subheader("📍 Map View with Photos & Reviews")
+    if sake_name:
+        st.subheader(f"📍 Restaurants serving {sake_name} - Map View")
+    else:
+        st.subheader("📍 Map View with Photos & Reviews")
+
     try:
         print(f"DEBUG: Attempting to render map HTML (length: {len(map_html)} chars)")
         components.html(map_html, height=650)
