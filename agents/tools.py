@@ -5,8 +5,10 @@ This module provides tools for searching sake information from:
 - Sake ranking websites (sakenowa.com, saketime.jp)
 - General web search via Tavily
 - Social media content via Tavily web search
+- Location-based searches for sake shops and restaurants
 """
-from typing import Optional, List, Callable
+from typing import Optional, List, Callable, Dict, Any
+import json
 from langchain_core.tools import tool
 from tavily import TavilyClient
 
@@ -334,6 +336,99 @@ def create_sake_tools(
         except Exception as e:
             return f"Error searching Instagram: {str(e)}"
 
+    @tool
+    def search_sake_locations(location: str, search_type: str = "both") -> str:
+        """
+        Search for sake shops, restaurants, or izakayas in a specific location.
+        Returns location data that can be displayed on a map.
+
+        Use this tool when users ask for sake shops, restaurants, or places to drink sake in a specific area.
+
+        Args:
+            location: City, region, or area to search (e.g., "Tokyo", "Kyoto", "東京", "京都")
+            search_type: Type of venue to search - "shop" (sake shops/liquor stores), "restaurant" (restaurants/izakayas), or "both"
+
+        Returns:
+            JSON string with location information including venue names, addresses, and coordinates for map display.
+        """
+        is_japanese = _is_japanese(location)
+
+        # Build search query based on type
+        if is_japanese:
+            if search_type == "shop":
+                search_query = f"{location} 日本酒 販売店 酒屋 専門店 住所"
+            elif search_type == "restaurant":
+                search_query = f"{location} 日本酒 レストラン 居酒屋 料理店 住所"
+            else:  # both
+                search_query = f"{location} 日本酒 販売店 酒屋 レストラン 居酒屋 住所"
+        else:
+            if search_type == "shop":
+                search_query = f"{location} Japanese sake shop liquor store address location"
+            elif search_type == "restaurant":
+                search_query = f"{location} Japanese sake restaurant izakaya bar address location"
+            else:  # both
+                search_query = f"{location} Japanese sake shop restaurant izakaya bar address location"
+
+        try:
+            results = tavily_client.search(
+                query=search_query,
+                search_depth="advanced",
+                max_results=10,
+                include_answer=True,
+            )
+
+            output = []
+            locations_data = []
+
+            if results.get("answer"):
+                output.append(f"Overview: {results['answer']}\n")
+
+            if is_japanese:
+                output.append(f"{location}の日本酒スポット:")
+            else:
+                output.append(f"Sake locations in {location}:")
+            output.append("-" * 50)
+
+            for idx, result in enumerate(results.get("results", []), 1):
+                title = result.get('title', 'No title')
+                url = result.get('url', '')
+                content = result.get('content', '')
+
+                output.append(f"\n{idx}. {title}")
+                output.append(f"   URL: {url}")
+
+                if content:
+                    # Truncate long content
+                    if len(content) > 400:
+                        content = content[:400] + "..."
+                    output.append(f"   Info: {content}")
+
+                # Store location data for map (will be extracted by the app)
+                locations_data.append({
+                    "name": title,
+                    "url": url,
+                    "description": content[:200] if content else ""
+                })
+
+            # Add special marker for map data (the app will parse this)
+            if locations_data:
+                output.append("\n" + "="*50)
+                output.append("MAP_DATA_START")
+                output.append(json.dumps({
+                    "search_location": location,
+                    "locations": locations_data
+                }, ensure_ascii=False))
+                output.append("MAP_DATA_END")
+                output.append("="*50)
+
+            if len(output) <= 3:  # Only header lines
+                return f"No sake locations found in {location}. Try searching a specific neighborhood or district."
+
+            return "\n".join(output)
+
+        except Exception as e:
+            return f"Error searching sake locations: {str(e)}"
+
     # Return all tools
     return [
         search_sake_rankings,
@@ -341,4 +436,5 @@ def create_sake_tools(
         search_social_media_hashtag,
         search_twitter_sake,
         search_instagram_sake,
+        search_sake_locations,
     ]

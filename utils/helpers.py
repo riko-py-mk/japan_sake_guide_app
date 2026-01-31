@@ -77,6 +77,10 @@ SIDEBAR_EXAMPLE_PROMPTS = {
             "Find Instagram posts about Dassai",
             "Search Instagram for Kubota sake",
         ],
+        "Location Search": [
+            "Find sake shops in Tokyo",
+            "Where can I drink sake in Kyoto?",
+        ],
     },
     "ja": {
         "日本酒ランキング": [
@@ -99,6 +103,10 @@ SIDEBAR_EXAMPLE_PROMPTS = {
             "獺祭のInstagram投稿を探して",
             "久保田のInstagram投稿を検索",
         ],
+        "場所検索": [
+            "東京の日本酒販売店を探して",
+            "京都で日本酒が飲める場所は？",
+        ],
     },
 }
 
@@ -107,13 +115,13 @@ EXAMPLE_PROMPTS = {
     "en": [
         "What are the top-rated sake this year?",
         "Tell me about Dassai 23",
+        "Find sake shops in Tokyo",
         "Search #sake hashtag on social media",
-        "Find Instagram posts about Kubota sake",
     ],
     "ja": [
         "今年人気の日本酒は何ですか？",
         "獺祭23について教えてください",
+        "東京の日本酒販売店を探して",
         "#日本酒 のSNS投稿を検索して",
-        "久保田のInstagram投稿を探して",
     ],
 }

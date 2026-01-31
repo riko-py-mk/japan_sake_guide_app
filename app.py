@@ -6,6 +6,8 @@ Supports both English and Japanese languages.
 """
 import streamlit as st
 from typing import Optional
+import json
+import re
 
 from agents.sake_agent import create_sake_agent, run_sake_agent
 from utils.helpers import detect_language, EXAMPLE_PROMPTS, SIDEBAR_EXAMPLE_PROMPTS
@@ -166,12 +168,132 @@ def render_example_prompts():
     return None
 
 
+def extract_map_data(response_text: str) -> Optional[dict]:
+    """
+    Extract map data from the agent response.
+
+    Args:
+        response_text: The response text from the agent
+
+    Returns:
+        Dictionary with map data or None if no map data found
+    """
+    try:
+        # Look for MAP_DATA_START and MAP_DATA_END markers
+        pattern = r'MAP_DATA_START\s*\n(.*?)\nMAP_DATA_END'
+        match = re.search(pattern, response_text, re.DOTALL)
+
+        if match:
+            json_str = match.group(1).strip()
+            return json.loads(json_str)
+    except Exception as e:
+        st.error(f"Error parsing map data: {str(e)}")
+
+    return None
+
+
+def display_map(map_data: dict):
+    """
+    Display an interactive map with sake location markers.
+
+    Args:
+        map_data: Dictionary containing search_location and locations list
+    """
+    try:
+        import folium
+        from streamlit_folium import folium_static
+        from geopy.geocoders import Nominatim
+        from geopy.exc import GeocoderTimedOut, GeocoderServiceError
+        import time
+    except ImportError:
+        st.warning("Map libraries not available. Please install folium, streamlit-folium, and geopy.")
+        return
+
+    search_location = map_data.get("search_location", "Tokyo, Japan")
+    locations = map_data.get("locations", [])
+
+    if not locations:
+        return
+
+    # Initialize geocoder
+    geolocator = Nominatim(user_agent="japanese_sake_guide_app")
+
+    # Get coordinates for the search location
+    try:
+        time.sleep(1)  # Rate limiting
+        main_location = geolocator.geocode(search_location + ", Japan")
+        if main_location:
+            center_lat = main_location.latitude
+            center_lon = main_location.longitude
+        else:
+            # Default to Tokyo if geocoding fails
+            center_lat = 35.6762
+            center_lon = 139.6503
+    except (GeocoderTimedOut, GeocoderServiceError):
+        # Default to Tokyo if geocoding fails
+        center_lat = 35.6762
+        center_lon = 139.6503
+
+    # Create map centered on the search location
+    m = folium.Map(
+        location=[center_lat, center_lon],
+        zoom_start=12,
+        tiles='OpenStreetMap'
+    )
+
+    # Add markers for each location
+    # Since we don't have exact coordinates, we'll add a single marker for the search area
+    # with a popup containing all the locations
+    popup_html = f"<div style='width: 300px'><h4>Sake Locations in {search_location}</h4><ul>"
+
+    for loc in locations[:10]:  # Limit to 10 locations
+        name = loc.get('name', 'Unknown')
+        url = loc.get('url', '#')
+        description = loc.get('description', '')[:100]
+
+        popup_html += f"<li><b><a href='{url}' target='_blank'>{name}</a></b>"
+        if description:
+            popup_html += f"<br><small>{description}...</small>"
+        popup_html += "</li>"
+
+    popup_html += "</ul></div>"
+
+    # Add a marker for the search location
+    folium.Marker(
+        [center_lat, center_lon],
+        popup=folium.Popup(popup_html, max_width=350),
+        tooltip=f"Click for sake locations in {search_location}",
+        icon=folium.Icon(color='red', icon='glass')
+    ).add_to(m)
+
+    # Display the map
+    st.subheader("📍 Map View")
+    folium_static(m, width=700, height=500)
+
+
 def render_chat():
     """Render the chat interface."""
     # Display chat messages
     for message in st.session_state.messages:
         with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+            # Extract and remove map data from display
+            content = message["content"]
+
+            if message["role"] == "assistant":
+                # Check for map data
+                map_data = extract_map_data(content)
+
+                # Remove map data markers from display text
+                content = re.sub(r'={50,}\s*MAP_DATA_START.*?MAP_DATA_END\s*={50,}', '', content, flags=re.DOTALL)
+
+                # Display the text content
+                st.markdown(content)
+
+                # Display map if data exists
+                if map_data:
+                    display_map(map_data)
+            else:
+                st.markdown(content)
 
 
 def process_user_input(user_input: str):
@@ -194,9 +316,21 @@ def process_user_input(user_input: str):
                 )
 
                 st.session_state.chat_history = new_history
-                st.markdown(response)
 
-                # Add assistant message to display
+                # Check for map data
+                map_data = extract_map_data(response)
+
+                # Remove map data markers from display text
+                display_text = re.sub(r'={50,}\s*MAP_DATA_START.*?MAP_DATA_END\s*={50,}', '', response, flags=re.DOTALL)
+
+                # Display the text
+                st.markdown(display_text)
+
+                # Display map if available
+                if map_data:
+                    display_map(map_data)
+
+                # Add assistant message to display (with full response including map data)
                 st.session_state.messages.append({"role": "assistant", "content": response})
 
             except Exception as e:
@@ -247,7 +381,8 @@ def main():
                 "- **Find recommendations** based on your taste preferences\n"
                 "- **Learn about specific sake** brands and breweries\n"
                 "- **Discover top-rated sake** from ranking websites\n"
-                "- **Explore Instagram** for sake content and reviews\n\n"
+                "- **Explore social media** for sake content and reviews\n"
+                "- **Find sake shops & restaurants** near you with interactive maps\n\n"
                 "Ask me anything about Japanese sake!"
             )
         else:
@@ -256,7 +391,8 @@ def main():
                 "- お好みに合わせた**おすすめの日本酒**を探す\n"
                 "- **特定の銘柄や蔵元**について詳しく知る\n"
                 "- ランキングサイトから**人気の日本酒**を発見する\n"
-                "- **Instagram**で日本酒のコンテンツやレビューを探索する\n\n"
+                "- **SNS**で日本酒のコンテンツやレビューを探索する\n"
+                "- **日本酒販売店や飲食店**をマップで探す\n\n"
                 "日本酒について何でも聞いてください！"
             )
 
