@@ -293,25 +293,18 @@ def run_sake_agent(
             response_text = msg.content
             break
 
-    # CRITICAL: Extract MAP_DATA from ToolMessages
-    # The LLM's final response summarizes tool output but doesn't include the MAP_DATA markers
-    # We need to find MAP_DATA in ToolMessages and append it to the response
-    map_data_section = ""
+    # CRITICAL: For location queries, use the TOOL's output directly instead of LLM's summary
+    # The LLM often generates its own location list from its knowledge, which doesn't match
+    # the actual Google Places results in MAP_DATA. This causes text/map mismatch.
+    import re
     for msg in final_messages:
         if isinstance(msg, ToolMessage) and msg.content:
             content = msg.content
             if "MAP_DATA_START" in content and "MAP_DATA_END" in content:
-                # Extract the map data section including markers
-                import re
-                pattern = r'(={50,}\s*MAP_DATA_START.*?MAP_DATA_END\s*={50,})'
-                match = re.search(pattern, content, re.DOTALL)
-                if match:
-                    map_data_section = "\n\n" + match.group(1)
-                    break
-
-    # Append MAP_DATA to response if found and not already present
-    if map_data_section and "MAP_DATA_START" not in response_text:
-        response_text = response_text + map_data_section
+                # Found location tool output - use the tool's text directly
+                # This ensures the text list matches the map markers
+                response_text = content
+                break
 
     # Update chat history
     new_history = list(final_messages)
