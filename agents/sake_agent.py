@@ -296,8 +296,9 @@ def run_sake_agent(
     # CRITICAL: For location queries, use the TOOL's output directly instead of LLM's summary
     # The LLM often generates its own location list from its knowledge, which doesn't match
     # the actual Google Places results in MAP_DATA. This causes text/map mismatch.
+    # IMPORTANT: Iterate in REVERSE to get the MOST RECENT ToolMessage, not old ones from history
     import re
-    for msg in final_messages:
+    for msg in reversed(final_messages):
         if isinstance(msg, ToolMessage) and msg.content:
             content = msg.content
             if "MAP_DATA_START" in content and "MAP_DATA_END" in content:
