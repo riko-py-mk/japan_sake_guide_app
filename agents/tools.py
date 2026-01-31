@@ -362,19 +362,25 @@ def create_sake_tools(
         is_japanese = _is_japanese(location)
 
         try:
+            print(f"DEBUG: search_sake_locations called with location='{location}', search_type='{search_type}'")
+
             # Geocode the location to get coordinates
+            print(f"DEBUG: Geocoding location: {location}")
             geocode_result = gmaps_client.geocode(location)
             if not geocode_result:
-                return f"Could not find location: {location}. Please try a different search term."
+                error_msg = f"Could not find location: {location}. Please try a different search term."
+                print(f"DEBUG: {error_msg}")
+                return error_msg
 
             center_location = geocode_result[0]['geometry']['location']
             lat, lng = center_location['lat'], center_location['lng']
+            print(f"DEBUG: Geocoded to ({lat}, {lng})")
 
             output = []
             locations_data = []
 
             if is_japanese:
-                output.append(f"{location}の日本酒スポット:")
+                output.append(f"{location}の日本酒スポットをいくつかご紹介します:")
             else:
                 output.append(f"Sake locations in {location}:")
             output.append("-" * 50)
@@ -393,19 +399,35 @@ def create_sake_tools(
                 else:
                     search_keywords.extend(["sake restaurant", "izakaya", "sake bar"])
 
+            print(f"DEBUG: Searching with {len(search_keywords)} keywords: {search_keywords}")
+
             # Search for places using Places API Nearby Search
             all_places = []
+            api_errors = []
             for keyword in search_keywords:
                 try:
+                    print(f"DEBUG: Searching for keyword: {keyword}")
                     places_result = gmaps_client.places_nearby(
                         location=(lat, lng),
                         radius=5000,  # 5km radius
                         keyword=keyword,
                         language='ja' if is_japanese else 'en'
                     )
+                    num_results = len(places_result.get('results', []))
+                    print(f"DEBUG: Found {num_results} results for '{keyword}'")
                     all_places.extend(places_result.get('results', []))
                 except Exception as e:
+                    error_detail = f"Error searching for '{keyword}': {str(e)}"
+                    print(f"DEBUG: {error_detail}")
+                    api_errors.append(error_detail)
                     continue
+
+            print(f"DEBUG: Total places found before deduplication: {len(all_places)}")
+
+            if not all_places and api_errors:
+                # All API calls failed
+                error_summary = "\n".join(api_errors[:3])  # Show first 3 errors
+                return f"Google Maps API error while searching for locations:\n{error_summary}\n\nPlease check:\n1. Places API is enabled in Google Cloud Console\n2. Your API key has access to Places API\n3. Billing is enabled for your Google Cloud project"
 
             # Remove duplicates based on place_id
             seen_ids = set()
@@ -416,8 +438,11 @@ def create_sake_tools(
                     seen_ids.add(place_id)
                     unique_places.append(place)
 
+            print(f"DEBUG: Unique places after deduplication: {len(unique_places)}")
+
             # Limit to top 10 places
             unique_places = unique_places[:10]
+            print(f"DEBUG: Processing top {len(unique_places)} places")
 
             # Fetch detailed information for each place
             for idx, place in enumerate(unique_places, 1):
@@ -503,28 +528,44 @@ def create_sake_tools(
                         "place_id": place_id
                     })
 
+            # Check if we found any locations
+            if not locations_data:
+                print("DEBUG: No locations found to display")
+                return f"No sake locations found in {location}. Try searching a specific neighborhood or district, or try a different search term."
+
             # Add special marker for map data (the app will parse this)
-            if locations_data:
-                output.append("\n" + "="*50)
-                output.append("MAP_DATA_START")
-                output.append(json.dumps({
-                    "search_location": location,
-                    "center_lat": lat,
-                    "center_lng": lng,
-                    "locations": locations_data
-                }, ensure_ascii=False))
-                output.append("MAP_DATA_END")
-                output.append("="*50)
+            print(f"DEBUG: Adding MAP_DATA markers with {len(locations_data)} locations")
+            output.append("\n" + "="*50)
+            output.append("MAP_DATA_START")
+            map_json = json.dumps({
+                "search_location": location,
+                "center_lat": lat,
+                "center_lng": lng,
+                "locations": locations_data
+            }, ensure_ascii=False)
+            output.append(map_json)
+            output.append("MAP_DATA_END")
+            output.append("="*50)
 
-            if len(output) <= 2:  # Only header lines
-                return f"No sake locations found in {location}. Try searching a specific neighborhood or district."
+            if is_japanese:
+                output.append("\n他にも多くの場所がありますので、興味がある方は訪れてみてください。地図情報も参考にしてください。")
+            else:
+                output.append("\nThere are many other locations as well. Please refer to the map for more details.")
 
-            return "\n".join(output)
+            result = "\n".join(output)
+            print(f"DEBUG: Returning result with {len(result)} characters, contains MAP_DATA: {'MAP_DATA' in result}")
+            return result
 
         except ApiError as e:
-            return f"Google Maps API error: {str(e)}. Please check your API key and quota."
+            error_msg = f"Google Maps API error: {str(e)}. Please check your API key and quota."
+            print(f"DEBUG: {error_msg}")
+            return error_msg
         except Exception as e:
-            return f"Error searching sake locations: {str(e)}"
+            error_msg = f"Error searching sake locations: {str(e)}"
+            print(f"DEBUG: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            return error_msg
 
     # Return all tools
     return [
