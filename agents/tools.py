@@ -5,12 +5,14 @@ This module provides tools for searching sake information from:
 - Sake ranking websites (sakenowa.com, saketime.jp)
 - General web search via Tavily
 - Social media content via Tavily web search
-- Location-based searches for sake shops and restaurants
+- Location-based searches for sake shops and restaurants using Google Places API
 """
 from typing import Optional, List, Callable, Dict, Any
 import json
 from langchain_core.tools import tool
 from tavily import TavilyClient
+import googlemaps
+from googlemaps.exceptions import ApiError
 
 
 def _is_japanese(text: str) -> bool:
@@ -58,6 +60,7 @@ def _sanitize_hashtag(text: str) -> str:
 def create_sake_tools(
     tavily_api_key: str,
     instagram_access_token: Optional[str] = None,  # Kept for backward compatibility, not used
+    google_maps_api_key: Optional[str] = None,
 ) -> List[Callable]:
     """
     Create tools for the sake guide agent with API keys bound.
@@ -65,11 +68,13 @@ def create_sake_tools(
     Args:
         tavily_api_key: API key for Tavily search
         instagram_access_token: Deprecated, kept for backward compatibility
+        google_maps_api_key: API key for Google Maps and Places API
 
     Returns:
         List of tool functions ready to use with LangGraph
     """
     tavily_client = TavilyClient(api_key=tavily_api_key)
+    gmaps_client = googlemaps.Client(key=google_maps_api_key) if google_maps_api_key else None
 
     @tool
     def search_sake_rankings(query: str) -> str:
@@ -339,8 +344,8 @@ def create_sake_tools(
     @tool
     def search_sake_locations(location: str, search_type: str = "both") -> str:
         """
-        Search for sake shops, restaurants, or izakayas in a specific location.
-        Returns location data that can be displayed on a map.
+        Search for sake shops, restaurants, or izakayas in a specific location using Google Places API.
+        Returns location data with photos and reviews that can be displayed on a map.
 
         Use this tool when users ask for sake shops, restaurants, or places to drink sake in a specific area.
 
@@ -349,39 +354,24 @@ def create_sake_tools(
             search_type: Type of venue to search - "shop" (sake shops/liquor stores), "restaurant" (restaurants/izakayas), or "both"
 
         Returns:
-            JSON string with location information including venue names, addresses, and coordinates for map display.
+            JSON string with location information including venue names, addresses, coordinates, photos, and reviews for map display.
         """
+        if not gmaps_client:
+            return "Google Maps API key not configured. Please add GOOGLE_MAPS_API_KEY to your secrets."
+
         is_japanese = _is_japanese(location)
 
-        # Build search query based on type
-        if is_japanese:
-            if search_type == "shop":
-                search_query = f"{location} 日本酒 販売店 酒屋 専門店 住所"
-            elif search_type == "restaurant":
-                search_query = f"{location} 日本酒 レストラン 居酒屋 料理店 住所"
-            else:  # both
-                search_query = f"{location} 日本酒 販売店 酒屋 レストラン 居酒屋 住所"
-        else:
-            if search_type == "shop":
-                search_query = f"{location} Japanese sake shop liquor store address location"
-            elif search_type == "restaurant":
-                search_query = f"{location} Japanese sake restaurant izakaya bar address location"
-            else:  # both
-                search_query = f"{location} Japanese sake shop restaurant izakaya bar address location"
-
         try:
-            results = tavily_client.search(
-                query=search_query,
-                search_depth="advanced",
-                max_results=10,
-                include_answer=True,
-            )
+            # Geocode the location to get coordinates
+            geocode_result = gmaps_client.geocode(location)
+            if not geocode_result:
+                return f"Could not find location: {location}. Please try a different search term."
+
+            center_location = geocode_result[0]['geometry']['location']
+            lat, lng = center_location['lat'], center_location['lng']
 
             output = []
             locations_data = []
-
-            if results.get("answer"):
-                output.append(f"Overview: {results['answer']}\n")
 
             if is_japanese:
                 output.append(f"{location}の日本酒スポット:")
@@ -389,26 +379,129 @@ def create_sake_tools(
                 output.append(f"Sake locations in {location}:")
             output.append("-" * 50)
 
-            for idx, result in enumerate(results.get("results", []), 1):
-                title = result.get('title', 'No title')
-                url = result.get('url', '')
-                content = result.get('content', '')
+            # Define search keywords based on type
+            search_keywords = []
+            if search_type in ["shop", "both"]:
+                if is_japanese:
+                    search_keywords.extend(["日本酒販売店", "酒屋", "日本酒専門店"])
+                else:
+                    search_keywords.extend(["sake shop", "liquor store sake"])
 
-                output.append(f"\n{idx}. {title}")
-                output.append(f"   URL: {url}")
+            if search_type in ["restaurant", "both"]:
+                if is_japanese:
+                    search_keywords.extend(["日本酒レストラン", "居酒屋", "日本酒バー"])
+                else:
+                    search_keywords.extend(["sake restaurant", "izakaya", "sake bar"])
 
-                if content:
-                    # Truncate long content
-                    if len(content) > 400:
-                        content = content[:400] + "..."
-                    output.append(f"   Info: {content}")
+            # Search for places using Places API Nearby Search
+            all_places = []
+            for keyword in search_keywords:
+                try:
+                    places_result = gmaps_client.places_nearby(
+                        location=(lat, lng),
+                        radius=5000,  # 5km radius
+                        keyword=keyword,
+                        language='ja' if is_japanese else 'en'
+                    )
+                    all_places.extend(places_result.get('results', []))
+                except Exception as e:
+                    continue
 
-                # Store location data for map (will be extracted by the app)
-                locations_data.append({
-                    "name": title,
-                    "url": url,
-                    "description": content[:200] if content else ""
-                })
+            # Remove duplicates based on place_id
+            seen_ids = set()
+            unique_places = []
+            for place in all_places:
+                place_id = place.get('place_id')
+                if place_id and place_id not in seen_ids:
+                    seen_ids.add(place_id)
+                    unique_places.append(place)
+
+            # Limit to top 10 places
+            unique_places = unique_places[:10]
+
+            # Fetch detailed information for each place
+            for idx, place in enumerate(unique_places, 1):
+                place_id = place.get('place_id')
+                name = place.get('name', 'Unknown')
+                address = place.get('vicinity', '')
+
+                # Get place details including photos and reviews
+                try:
+                    place_details = gmaps_client.place(
+                        place_id=place_id,
+                        fields=['name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total',
+                                'photos', 'reviews', 'website', 'formatted_phone_number', 'opening_hours']
+                    ).get('result', {})
+
+                    # Extract information
+                    full_address = place_details.get('formatted_address', address)
+                    rating = place_details.get('rating', 0)
+                    total_ratings = place_details.get('user_ratings_total', 0)
+                    website = place_details.get('website', '')
+                    phone = place_details.get('formatted_phone_number', '')
+                    location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
+
+                    # Extract photos (up to 3)
+                    photos = []
+                    photos_data = place_details.get('photos', [])[:3]
+                    for photo in photos_data:
+                        photo_ref = photo.get('photo_reference')
+                        if photo_ref:
+                            photos.append({
+                                'photo_reference': photo_ref,
+                                'width': photo.get('width', 400),
+                                'height': photo.get('height', 400)
+                            })
+
+                    # Extract reviews (up to 3)
+                    reviews = []
+                    reviews_data = place_details.get('reviews', [])[:3]
+                    for review in reviews_data:
+                        reviews.append({
+                            'author': review.get('author_name', 'Anonymous'),
+                            'rating': review.get('rating', 0),
+                            'text': review.get('text', '')[:200],  # Limit review length
+                            'time': review.get('relative_time_description', '')
+                        })
+
+                    # Add to output
+                    output.append(f"\n{idx}. {name}")
+                    output.append(f"   Address: {full_address}")
+                    if rating > 0:
+                        output.append(f"   Rating: {rating}⭐ ({total_ratings} reviews)")
+                    if website:
+                        output.append(f"   Website: {website}")
+                    if phone:
+                        output.append(f"   Phone: {phone}")
+
+                    # Store location data for map
+                    locations_data.append({
+                        "name": name,
+                        "address": full_address,
+                        "lat": location_coords['lat'],
+                        "lng": location_coords['lng'],
+                        "rating": rating,
+                        "total_ratings": total_ratings,
+                        "website": website,
+                        "phone": phone,
+                        "photos": photos,
+                        "reviews": reviews,
+                        "place_id": place_id
+                    })
+
+                except Exception as e:
+                    # If detailed fetch fails, use basic info
+                    output.append(f"\n{idx}. {name}")
+                    output.append(f"   Address: {address}")
+
+                    locations_data.append({
+                        "name": name,
+                        "address": address,
+                        "lat": place.get('geometry', {}).get('location', {}).get('lat', 0),
+                        "lng": place.get('geometry', {}).get('location', {}).get('lng', 0),
+                        "rating": place.get('rating', 0),
+                        "place_id": place_id
+                    })
 
             # Add special marker for map data (the app will parse this)
             if locations_data:
@@ -416,16 +509,20 @@ def create_sake_tools(
                 output.append("MAP_DATA_START")
                 output.append(json.dumps({
                     "search_location": location,
+                    "center_lat": lat,
+                    "center_lng": lng,
                     "locations": locations_data
                 }, ensure_ascii=False))
                 output.append("MAP_DATA_END")
                 output.append("="*50)
 
-            if len(output) <= 3:  # Only header lines
+            if len(output) <= 2:  # Only header lines
                 return f"No sake locations found in {location}. Try searching a specific neighborhood or district."
 
             return "\n".join(output)
 
+        except ApiError as e:
+            return f"Google Maps API error: {str(e)}. Please check your API key and quota."
         except Exception as e:
             return f"Error searching sake locations: {str(e)}"
 

@@ -57,11 +57,14 @@ def check_api_keys() -> tuple[bool, str]:
     """
     openai_key = st.secrets.get("OPENAI_API_KEY", "")
     tavily_key = st.secrets.get("TAVILY_API_KEY", "")
+    google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
 
     if not openai_key:
         return False, "OPENAI_API_KEY is not configured. Please add it to your Streamlit secrets."
     if not tavily_key:
         return False, "TAVILY_API_KEY is not configured. Please add it to your Streamlit secrets."
+    if not google_maps_key:
+        return False, "GOOGLE_MAPS_API_KEY is not configured. Please add it to your Streamlit secrets."
 
     return True, ""
 
@@ -72,11 +75,13 @@ def initialize_agent():
         openai_key = st.secrets.get("OPENAI_API_KEY", "")
         tavily_key = st.secrets.get("TAVILY_API_KEY", "")
         instagram_token = st.secrets.get("INSTAGRAM_ACCESS_TOKEN", None)
+        google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
 
         st.session_state.agent = create_sake_agent(
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
             instagram_token=instagram_token,
+            google_maps_api_key=google_maps_key,
         )
 
 
@@ -194,81 +199,192 @@ def extract_map_data(response_text: str) -> Optional[dict]:
 
 def display_map(map_data: dict):
     """
-    Display an interactive map with sake location markers.
+    Display an interactive Google Map with sake location markers, photos, and reviews.
 
     Args:
-        map_data: Dictionary containing search_location and locations list
+        map_data: Dictionary containing center coordinates and locations list with photos and reviews
     """
-    try:
-        import folium
-        from streamlit_folium import folium_static
-        from geopy.geocoders import Nominatim
-        from geopy.exc import GeocoderTimedOut, GeocoderServiceError
-        import time
-    except ImportError:
-        st.warning("Map libraries not available. Please install folium, streamlit-folium, and geopy.")
+    import streamlit.components.v1 as components
+
+    google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
+    if not google_maps_key:
+        st.warning("Google Maps API key not configured. Cannot display map.")
         return
 
     search_location = map_data.get("search_location", "Tokyo, Japan")
     locations = map_data.get("locations", [])
+    center_lat = map_data.get("center_lat", 35.6762)
+    center_lng = map_data.get("center_lng", 139.6503)
 
     if not locations:
         return
 
-    # Initialize geocoder
-    geolocator = Nominatim(user_agent="japanese_sake_guide_app")
+    # Build markers data for JavaScript
+    markers_json = json.dumps(locations, ensure_ascii=False)
 
-    # Get coordinates for the search location
-    try:
-        time.sleep(1)  # Rate limiting
-        main_location = geolocator.geocode(search_location + ", Japan")
-        if main_location:
-            center_lat = main_location.latitude
-            center_lon = main_location.longitude
-        else:
-            # Default to Tokyo if geocoding fails
-            center_lat = 35.6762
-            center_lon = 139.6503
-    except (GeocoderTimedOut, GeocoderServiceError):
-        # Default to Tokyo if geocoding fails
-        center_lat = 35.6762
-        center_lon = 139.6503
+    # Create HTML with Google Maps JavaScript API
+    map_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <style>
+            #map {{
+                height: 600px;
+                width: 100%;
+            }}
+            .info-window {{
+                max-width: 350px;
+                font-family: Arial, sans-serif;
+            }}
+            .info-window h3 {{
+                margin: 0 0 10px 0;
+                color: #1a73e8;
+                font-size: 16px;
+            }}
+            .info-window .rating {{
+                color: #f4b400;
+                margin: 5px 0;
+            }}
+            .info-window .address {{
+                margin: 5px 0;
+                font-size: 13px;
+                color: #5f6368;
+            }}
+            .info-window .contact {{
+                margin: 5px 0;
+                font-size: 13px;
+            }}
+            .info-window .photos {{
+                margin: 10px 0;
+                display: flex;
+                gap: 5px;
+                overflow-x: auto;
+            }}
+            .info-window .photos img {{
+                height: 100px;
+                width: auto;
+                border-radius: 4px;
+                cursor: pointer;
+            }}
+            .info-window .review {{
+                margin: 10px 0;
+                padding: 10px;
+                background: #f8f9fa;
+                border-radius: 4px;
+                font-size: 12px;
+            }}
+            .info-window .review-author {{
+                font-weight: bold;
+                margin-bottom: 5px;
+            }}
+            .info-window .review-text {{
+                color: #202124;
+            }}
+        </style>
+    </head>
+    <body>
+        <div id="map"></div>
+        <script>
+            let map;
+            let infoWindow;
 
-    # Create map centered on the search location
-    m = folium.Map(
-        location=[center_lat, center_lon],
-        zoom_start=12,
-        tiles='OpenStreetMap'
-    )
+            function initMap() {{
+                const center = {{ lat: {center_lat}, lng: {center_lng} }};
 
-    # Add markers for each location
-    # Since we don't have exact coordinates, we'll add a single marker for the search area
-    # with a popup containing all the locations
-    popup_html = f"<div style='width: 300px'><h4>Sake Locations in {search_location}</h4><ul>"
+                map = new google.maps.Map(document.getElementById("map"), {{
+                    zoom: 13,
+                    center: center,
+                    mapTypeControl: true,
+                    streetViewControl: true,
+                    fullscreenControl: true,
+                }});
 
-    for loc in locations[:10]:  # Limit to 10 locations
-        name = loc.get('name', 'Unknown')
-        url = loc.get('url', '#')
-        description = loc.get('description', '')[:100]
+                infoWindow = new google.maps.InfoWindow();
 
-        popup_html += f"<li><b><a href='{url}' target='_blank'>{name}</a></b>"
-        if description:
-            popup_html += f"<br><small>{description}...</small>"
-        popup_html += "</li>"
+                const markers = {markers_json};
 
-    popup_html += "</ul></div>"
+                markers.forEach((location, index) => {{
+                    const marker = new google.maps.Marker({{
+                        position: {{ lat: location.lat, lng: location.lng }},
+                        map: map,
+                        title: location.name,
+                        animation: google.maps.Animation.DROP,
+                    }});
 
-    # Add a marker for the search location
-    folium.Marker(
-        [center_lat, center_lon],
-        popup=folium.Popup(popup_html, max_width=350),
-        tooltip=f"Click for sake locations in {search_location}",
-        icon=folium.Icon(color='red', icon='glass')
-    ).add_to(m)
+                    marker.addListener("click", () => {{
+                        const content = createInfoWindowContent(location);
+                        infoWindow.setContent(content);
+                        infoWindow.open(map, marker);
+                    }});
+                }});
+            }}
+
+            function createInfoWindowContent(location) {{
+                let html = '<div class="info-window">';
+
+                // Title
+                html += `<h3>${{location.name}}</h3>`;
+
+                // Rating
+                if (location.rating && location.rating > 0) {{
+                    const stars = '⭐'.repeat(Math.round(location.rating));
+                    html += `<div class="rating">${{stars}} ${{location.rating}} (${{location.total_ratings || 0}} reviews)</div>`;
+                }}
+
+                // Address
+                if (location.address) {{
+                    html += `<div class="address">📍 ${{location.address}}</div>`;
+                }}
+
+                // Website
+                if (location.website) {{
+                    html += `<div class="contact">🌐 <a href="${{location.website}}" target="_blank">Website</a></div>`;
+                }}
+
+                // Phone
+                if (location.phone) {{
+                    html += `<div class="contact">📞 ${{location.phone}}</div>`;
+                }}
+
+                // Photos
+                if (location.photos && location.photos.length > 0) {{
+                    html += '<div class="photos">';
+                    location.photos.forEach(photo => {{
+                        const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${{photo.width}}&photo_reference=${{photo.photo_reference}}&key={google_maps_key}`;
+                        html += `<img src="${{photoUrl}}" alt="Photo" onclick="window.open('${{photoUrl}}', '_blank')">`;
+                    }});
+                    html += '</div>';
+                }}
+
+                // Reviews
+                if (location.reviews && location.reviews.length > 0) {{
+                    html += '<div style="margin-top: 10px;"><strong>Recent Reviews:</strong></div>';
+                    location.reviews.slice(0, 2).forEach(review => {{
+                        const reviewStars = '⭐'.repeat(review.rating);
+                        html += `
+                            <div class="review">
+                                <div class="review-author">${{review.author}} ${{reviewStars}}</div>
+                                <div class="review-text">${{review.text}}...</div>
+                                <div style="font-size: 11px; color: #5f6368; margin-top: 5px;">${{review.time}}</div>
+                            </div>
+                        `;
+                    }});
+                }}
+
+                html += '</div>';
+                return html;
+            }}
+        </script>
+        <script async defer
+            src="https://maps.googleapis.com/maps/api/js?key={google_maps_key}&callback=initMap">
+        </script>
+    </body>
+    </html>
+    """
 
     # Display the map
-    st.subheader("📍 Map View")
-    folium_static(m, width=700, height=500)
+    st.subheader("📍 Map View with Photos & Reviews")
+    components.html(map_html, height=650)
 
 
 def render_chat():
@@ -360,7 +476,8 @@ def main():
             "To use this app, you need to configure API keys in Streamlit secrets:\n\n"
             "1. **OPENAI_API_KEY**: Get from [OpenAI](https://platform.openai.com/api-keys)\n"
             "2. **TAVILY_API_KEY**: Get from [Tavily](https://tavily.com/)\n"
-            "3. **INSTAGRAM_ACCESS_TOKEN** (optional): For Instagram search\n\n"
+            "3. **GOOGLE_MAPS_API_KEY**: Get from [Google Cloud Console](https://console.cloud.google.com/)\n"
+            "4. **INSTAGRAM_ACCESS_TOKEN** (optional): For Instagram search\n\n"
             "Add these to `.streamlit/secrets.toml` or in Streamlit Cloud settings."
         )
         return

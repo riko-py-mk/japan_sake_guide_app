@@ -93,6 +93,7 @@ def create_sake_agent(
     openai_api_key: str,
     tavily_api_key: str,
     instagram_token: Optional[str] = None,
+    google_maps_api_key: Optional[str] = None,
 ):
     """
     Create the Japanese Sake Guide agent using LangGraph.
@@ -101,6 +102,7 @@ def create_sake_agent(
         openai_api_key: OpenAI API key
         tavily_api_key: Tavily API key
         instagram_token: Optional Instagram access token for hashtag search
+        google_maps_api_key: Optional Google Maps API key for location search
 
     Returns:
         Compiled LangGraph agent
@@ -116,6 +118,7 @@ def create_sake_agent(
     tools = create_sake_tools(
         tavily_api_key=tavily_api_key,
         instagram_access_token=instagram_token,
+        google_maps_api_key=google_maps_api_key,
     )
 
     # Bind tools to the LLM
