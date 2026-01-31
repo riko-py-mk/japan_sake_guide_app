@@ -9,7 +9,7 @@ The agent can:
 - Search social media (Twitter, Instagram, Facebook) for sake-related content using snscrape
 """
 from typing import TypedDict, Annotated, Sequence, Literal, Optional
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.graph import StateGraph, END
 from langgraph.prebuilt import ToolNode
@@ -292,6 +292,26 @@ def run_sake_agent(
         if isinstance(msg, AIMessage) and msg.content:
             response_text = msg.content
             break
+
+    # CRITICAL: Extract MAP_DATA from ToolMessages
+    # The LLM's final response summarizes tool output but doesn't include the MAP_DATA markers
+    # We need to find MAP_DATA in ToolMessages and append it to the response
+    map_data_section = ""
+    for msg in final_messages:
+        if isinstance(msg, ToolMessage) and msg.content:
+            content = msg.content
+            if "MAP_DATA_START" in content and "MAP_DATA_END" in content:
+                # Extract the map data section including markers
+                import re
+                pattern = r'(={50,}\s*MAP_DATA_START.*?MAP_DATA_END\s*={50,})'
+                match = re.search(pattern, content, re.DOTALL)
+                if match:
+                    map_data_section = "\n\n" + match.group(1)
+                    break
+
+    # Append MAP_DATA to response if found and not already present
+    if map_data_section and "MAP_DATA_START" not in response_text:
+        response_text = response_text + map_data_section
 
     # Update chat history
     new_history = list(final_messages)
