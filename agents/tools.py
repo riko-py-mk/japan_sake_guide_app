@@ -470,7 +470,8 @@ def create_sake_tools(
                     total_ratings = place_details.get('user_ratings_total', 0)
                     website = place_details.get('website', '')
                     phone = place_details.get('formatted_phone_number', '')
-                    google_maps_url = place_details.get('url', '')
+                    # Get Google Maps URL with fallback
+                    google_maps_url = place_details.get('url', '') or f"https://www.google.com/maps/place/?q=place_id:{place_id}"
                     location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
 
                     # Extract photos (up to 3)
@@ -530,12 +531,16 @@ def create_sake_tools(
                     output.append(f"\n{idx}. {name}")
                     output.append(f"   Address: {address}")
 
+                    # Fallback Google Maps URL
+                    fallback_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+
                     locations_data.append({
                         "name": name,
                         "address": address,
                         "lat": place.get('geometry', {}).get('location', {}).get('lat', 0),
                         "lng": place.get('geometry', {}).get('location', {}).get('lng', 0),
                         "rating": place.get('rating', 0),
+                        "google_maps_url": fallback_url,
                         "place_id": place_id,
                         "sake_name": sake_name
                     })
@@ -697,7 +702,7 @@ def create_sake_tools(
                     place_details = gmaps_client.place(
                         place_id=place_id,
                         fields=['name', 'formatted_address', 'geometry', 'rating', 'user_ratings_total',
-                                'photos', 'reviews', 'website', 'formatted_phone_number', 'opening_hours']
+                                'photos', 'reviews', 'website', 'formatted_phone_number', 'opening_hours', 'url']
                     ).get('result', {})
 
                     # Extract information
@@ -706,6 +711,8 @@ def create_sake_tools(
                     total_ratings = place_details.get('user_ratings_total', 0)
                     website = place_details.get('website', '')
                     phone = place_details.get('formatted_phone_number', '')
+                    # Get Google Maps URL with fallback
+                    google_maps_url = place_details.get('url', '') or f"https://www.google.com/maps/place/?q=place_id:{place_id}"
                     location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
 
                     # Extract photos (up to 3)
@@ -738,6 +745,8 @@ def create_sake_tools(
                         output.append(f"   Rating: {rating}⭐ ({total_ratings} reviews)")
                     if website:
                         output.append(f"   Website: {website}")
+                    if google_maps_url:
+                        output.append(f"   Google Maps: {google_maps_url}")
                     if phone:
                         output.append(f"   Phone: {phone}")
 
@@ -751,6 +760,7 @@ def create_sake_tools(
                         "total_ratings": total_ratings,
                         "website": website,
                         "phone": phone,
+                        "google_maps_url": google_maps_url,
                         "photos": photos,
                         "reviews": reviews,
                         "place_id": place_id
@@ -761,12 +771,16 @@ def create_sake_tools(
                     output.append(f"\n{idx}. {name}")
                     output.append(f"   Address: {address}")
 
+                    # Fallback Google Maps URL
+                    fallback_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+
                     locations_data.append({
                         "name": name,
                         "address": address,
                         "lat": place.get('geometry', {}).get('location', {}).get('lat', 0),
                         "lng": place.get('geometry', {}).get('location', {}).get('lng', 0),
                         "rating": place.get('rating', 0),
+                        "google_maps_url": fallback_url,
                         "place_id": place_id
                     })
 
