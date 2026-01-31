@@ -470,9 +470,14 @@ def create_sake_tools(
                     total_ratings = place_details.get('user_ratings_total', 0)
                     website = place_details.get('website', '')
                     phone = place_details.get('formatted_phone_number', '')
-                    # Get Google Maps URL with fallback
-                    google_maps_url = place_details.get('url', '') or f"https://www.google.com/maps/place/?q=place_id:{place_id}"
                     location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
+
+                    # Get Google Maps URL with coordinate-based fallback (more reliable)
+                    google_maps_url = place_details.get('url', '')
+                    if not google_maps_url and location_coords:
+                        # Use coordinate-based URL as fallback
+                        lat, lng = location_coords.get('lat', 0), location_coords.get('lng', 0)
+                        google_maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
                     # Extract photos (up to 3)
                     photos = []
@@ -531,14 +536,16 @@ def create_sake_tools(
                     output.append(f"\n{idx}. {name}")
                     output.append(f"   Address: {address}")
 
-                    # Fallback Google Maps URL
-                    fallback_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+                    # Fallback Google Maps URL using coordinates (more reliable than place_id)
+                    lat = place.get('geometry', {}).get('location', {}).get('lat', 0)
+                    lng = place.get('geometry', {}).get('location', {}).get('lng', 0)
+                    fallback_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
                     locations_data.append({
                         "name": name,
                         "address": address,
-                        "lat": place.get('geometry', {}).get('location', {}).get('lat', 0),
-                        "lng": place.get('geometry', {}).get('location', {}).get('lng', 0),
+                        "lat": lat,
+                        "lng": lng,
                         "rating": place.get('rating', 0),
                         "google_maps_url": fallback_url,
                         "place_id": place_id,
@@ -711,9 +718,14 @@ def create_sake_tools(
                     total_ratings = place_details.get('user_ratings_total', 0)
                     website = place_details.get('website', '')
                     phone = place_details.get('formatted_phone_number', '')
-                    # Get Google Maps URL with fallback
-                    google_maps_url = place_details.get('url', '') or f"https://www.google.com/maps/place/?q=place_id:{place_id}"
                     location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
+
+                    # Get Google Maps URL with coordinate-based fallback (more reliable)
+                    google_maps_url = place_details.get('url', '')
+                    if not google_maps_url and location_coords:
+                        # Use coordinate-based URL as fallback
+                        lat, lng = location_coords.get('lat', 0), location_coords.get('lng', 0)
+                        google_maps_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
                     # Extract photos (up to 3)
                     photos = []
@@ -771,14 +783,16 @@ def create_sake_tools(
                     output.append(f"\n{idx}. {name}")
                     output.append(f"   Address: {address}")
 
-                    # Fallback Google Maps URL
-                    fallback_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}"
+                    # Fallback Google Maps URL using coordinates (more reliable than place_id)
+                    lat = place.get('geometry', {}).get('location', {}).get('lat', 0)
+                    lng = place.get('geometry', {}).get('location', {}).get('lng', 0)
+                    fallback_url = f"https://www.google.com/maps/search/?api=1&query={lat},{lng}"
 
                     locations_data.append({
                         "name": name,
                         "address": address,
-                        "lat": place.get('geometry', {}).get('location', {}).get('lat', 0),
-                        "lng": place.get('geometry', {}).get('location', {}).get('lng', 0),
+                        "lat": lat,
+                        "lng": lng,
                         "rating": place.get('rating', 0),
                         "google_maps_url": fallback_url,
                         "place_id": place_id
