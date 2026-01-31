@@ -10,6 +10,7 @@ An AI-powered web application to help users discover and learn about Japanese sa
 - **Sake Information** | 銘柄情報: Learn about specific sake brands, breweries, and production methods
 - **Rankings** | ランキング: Access top-rated sake from trusted sources (Sakenowa, Saketime)
 - **Instagram Search** | Instagram検索: Find social media content and reviews about sake
+- **Google Maps Integration** | Google Maps連携: Find sake shops and restaurants with interactive maps, photos, and reviews
 - **Bilingual Support** | 日英対応: Full support for both Japanese and English
 
 ## Tech Stack | 技術スタック
@@ -18,6 +19,7 @@ An AI-powered web application to help users discover and learn about Japanese sa
 - **Agent Framework**: [LangGraph](https://langchain-ai.github.io/langgraph/)
 - **LLM**: [OpenAI GPT-4o](https://openai.com/)
 - **Web Search**: [Tavily API](https://tavily.com/)
+- **Maps & Places**: [Google Maps API](https://developers.google.com/maps) & [Google Places API](https://developers.google.com/maps/documentation/places/web-service)
 - **Deployment**: [Streamlit Cloud](https://streamlit.io/cloud)
 
 ## Data Sources | データソース
@@ -34,6 +36,7 @@ The app retrieves sake information from:
 - Python 3.9+
 - OpenAI API key
 - Tavily API key
+- Google Maps API key (with Maps JavaScript API and Places API enabled)
 
 ### Local Development | ローカル開発
 
@@ -62,6 +65,7 @@ The app retrieves sake information from:
    ```toml
    OPENAI_API_KEY = "your-openai-api-key"
    TAVILY_API_KEY = "your-tavily-api-key"
+   GOOGLE_MAPS_API_KEY = "your-google-maps-api-key"
    INSTAGRAM_ACCESS_TOKEN = "optional-instagram-token"
    ```
 
@@ -88,6 +92,7 @@ The app retrieves sake information from:
    ```toml
    OPENAI_API_KEY = "your-openai-api-key"
    TAVILY_API_KEY = "your-tavily-api-key"
+   GOOGLE_MAPS_API_KEY = "your-google-maps-api-key"
    INSTAGRAM_ACCESS_TOKEN = "optional-instagram-token"
    ```
 
@@ -124,6 +129,8 @@ japan_sake_guide_app/
 - "Recommend a fruity sake for beginners"
 - "What sake pairs well with sushi?"
 - "Find Instagram posts about Kubota sake"
+- "Where can I buy sake in Tokyo?"
+- "Show me sake restaurants in Kyoto on a map"
 
 ### 日本語
 - "今年人気の日本酒は何ですか？"
@@ -131,6 +138,8 @@ japan_sake_guide_app/
 - "初心者におすすめのフルーティな日本酒は？"
 - "寿司に合う日本酒を教えてください"
 - "久保田のInstagram投稿を探して"
+- "東京で日本酒が買える場所を教えて"
+- "京都の日本酒レストランを地図で見せて"
 
 ## API Keys | APIキー
 
@@ -143,6 +152,24 @@ japan_sake_guide_app/
 1. Go to [Tavily](https://tavily.com/)
 2. Sign up for an account
 3. Get your API key from the dashboard
+
+### Google Maps API
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create a new project or select an existing one
+3. Enable the following APIs:
+   - **Maps JavaScript API**
+   - **Places API**
+   - **Geocoding API**
+4. Go to "Credentials" and create an API key
+5. (Recommended) Restrict your API key:
+   - For application restrictions, select "HTTP referrers" or "IP addresses"
+   - For API restrictions, select "Restrict key" and choose the three APIs listed above
+6. Copy your API key
+
+**Important Notes:**
+- Google Maps API requires a billing account, but provides $200 free credit per month
+- The free tier is sufficient for most personal use cases
+- Monitor your usage in the Google Cloud Console to avoid unexpected charges
 
 ### Instagram API (Optional)
 For enhanced Instagram search:
