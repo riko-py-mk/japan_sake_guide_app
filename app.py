@@ -367,6 +367,25 @@ def display_map(map_data: dict):
                         const content = createInfoWindowContent(location);
                         infoWindow.setContent(content);
                         infoWindow.open(map, marker);
+
+                        // Attach event listeners after InfoWindow opens
+                        google.maps.event.addListenerOnce(infoWindow, 'domready', () => {{
+                            const gmapsLink = document.getElementById('gmaps-link-' + location.place_id);
+                            if (gmapsLink) {{
+                                gmapsLink.addEventListener('click', (e) => {{
+                                    e.preventDefault();
+                                    window.open(location.google_maps_url, '_blank');
+                                }});
+                            }}
+
+                            const websiteLink = document.getElementById('website-link-' + location.place_id);
+                            if (websiteLink) {{
+                                websiteLink.addEventListener('click', (e) => {{
+                                    e.preventDefault();
+                                    window.open(location.website, '_blank');
+                                }});
+                            }}
+                        }});
                     }});
                 }});
             }}
@@ -393,12 +412,12 @@ def display_map(map_data: dict):
 
                 // Google Maps link
                 if (location.google_maps_url) {{
-                    html += `<div class="contact">🗺️ <span onclick="window.open('${{location.google_maps_url}}', '_blank')" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">View on Google Maps</span></div>`;
+                    html += `<div class="contact">🗺️ <a href="#" id="gmaps-link-${{location.place_id}}" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">View on Google Maps</a></div>`;
                 }}
 
                 // Website
                 if (location.website) {{
-                    html += `<div class="contact">🌐 <span onclick="window.open('${{location.website}}', '_blank')" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">Website</span></div>`;
+                    html += `<div class="contact">🌐 <a href="#" id="website-link-${{location.place_id}}" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">Website</a></div>`;
                 }}
 
                 // Phone
