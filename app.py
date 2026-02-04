@@ -104,7 +104,7 @@ def initialize_session_state():
     if "chat_history" not in st.session_state:
         st.session_state.chat_history = []
     if "language" not in st.session_state:
-        st.session_state.language = "en"
+        st.session_state.language = "ja"
 
 
 def render_sidebar():
