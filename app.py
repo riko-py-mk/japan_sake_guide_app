@@ -122,18 +122,6 @@ def render_sidebar():
 
         st.divider()
 
-        # API Configuration Status
-        st.subheader("API Status")
-        google_maps_status = st.session_state.get("google_maps_configured", False)
-        if google_maps_status:
-            st.success("✓ Google Maps API configured")
-            st.caption("Maps with photos and reviews enabled")
-        else:
-            st.warning("⚠️ Google Maps API not configured")
-            st.caption("Add GOOGLE_MAPS_API_KEY to enable maps")
-
-        st.divider()
-
         # Example prompts by tool
         lang = st.session_state.language
         if lang == "en":
