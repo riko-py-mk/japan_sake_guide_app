@@ -81,6 +81,10 @@ SIDEBAR_EXAMPLE_PROMPTS = {
             "Find sake shops in Tokyo",
             "Where can I drink sake in Kyoto?",
         ],
+        "Online Shop Search": [
+            "Where can I buy Dassai online?",
+            "I want to order Kubota Manju",
+        ],
     },
     "ja": {
         "日本酒ランキング": [
@@ -106,6 +110,10 @@ SIDEBAR_EXAMPLE_PROMPTS = {
         "場所検索": [
             "東京の日本酒販売店を探して",
             "京都で日本酒が飲める場所は？",
+        ],
+        "オンラインショップ検索": [
+            "獺祭をネットで購入したい",
+            "久保田 萬寿の通販を探して",
         ],
     },
 }

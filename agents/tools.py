@@ -837,6 +837,106 @@ def create_sake_tools(
             traceback.print_exc()
             return error_msg
 
+    @tool
+    def search_sake_online_shops(sake_name: str) -> str:
+        """
+        Search for a specific sake available on online shops specializing in Japanese sake.
+        Use this tool when users ask where they can buy a specific sake online, or want to purchase sake via the internet.
+
+        Searches the following online sake shops:
+        - jizake.com (地酒.com)
+        - matsuzaki-shop.jp (松崎酒店)
+        - sakenomy.jp (サケノミー)
+        - yajima-jizake.co.jp (矢島酒店)
+        - ikedasaketen.com (池田酒店)
+        - souta-shoten.shop (創太商店)
+        - uekiya-shouten.com (植木屋商店)
+
+        Args:
+            sake_name: Name of the sake to search for (e.g., "獺祭", "Dassai", "久保田", "写楽")
+
+        Returns:
+            Search results from online sake shops with product listings and URLs.
+        """
+        is_japanese = _is_japanese(sake_name)
+
+        if is_japanese:
+            search_query = f"日本酒 {sake_name} 購入 通販"
+        else:
+            search_query = f"日本酒 sake {sake_name} buy"
+
+        online_shop_domains = [
+            "jizake.com",
+            "matsuzaki-shop.jp",
+            "sakenomy.jp",
+            "yajima-jizake.co.jp",
+            "ikedasaketen.com",
+            "souta-shoten.shop",
+            "uekiya-shouten.com",
+        ]
+
+        try:
+            results = tavily_client.search(
+                query=search_query,
+                search_depth="advanced",
+                max_results=10,
+                include_domains=online_shop_domains,
+                include_answer=True,
+            )
+
+            output = []
+            if results.get("answer"):
+                output.append(f"Summary: {results['answer']}\n")
+
+            if is_japanese:
+                output.append(f"「{sake_name}」のオンラインショップ検索結果:")
+            else:
+                output.append(f"Online shop results for '{sake_name}':")
+            output.append("-" * 50)
+
+            for idx, result in enumerate(results.get("results", []), 1):
+                title = result.get('title', 'No title')
+                url = result.get('url', '')
+                content = result.get('content', '')
+                if content and len(content) > 500:
+                    content = content[:500] + "..."
+
+                output.append(f"\n{idx}. {title}")
+                output.append(f"   URL: {url}")
+                if content:
+                    output.append(f"   Details: {content}")
+
+            if len(output) <= 3:  # Only header lines
+                if is_japanese:
+                    return (
+                        f"「{sake_name}」はオンラインショップでは見つかりませんでした。"
+                        f"以下のショップで直接検索してみてください:\n"
+                        f"- https://www.jizake.com/c/sake/\n"
+                        f"- https://matsuzaki-shop.jp/shop/product_categories/sake\n"
+                        f"- https://www.sakenomy.jp/\n"
+                        f"- https://www.yajima-jizake.co.jp/\n"
+                        f"- https://ikedasaketen.com/\n"
+                        f"- https://souta-shoten.shop/\n"
+                        f"- https://uekiya-shouten.com/"
+                    )
+                else:
+                    return (
+                        f"No results found for '{sake_name}' on online shops. "
+                        f"You can try searching directly on these shops:\n"
+                        f"- https://www.jizake.com/c/sake/\n"
+                        f"- https://matsuzaki-shop.jp/shop/product_categories/sake\n"
+                        f"- https://www.sakenomy.jp/\n"
+                        f"- https://www.yajima-jizake.co.jp/\n"
+                        f"- https://ikedasaketen.com/\n"
+                        f"- https://souta-shoten.shop/\n"
+                        f"- https://uekiya-shouten.com/"
+                    )
+
+            return "\n".join(output)
+
+        except Exception as e:
+            return f"Error searching online sake shops: {str(e)}"
+
     # Return all tools
     return [
         search_sake_rankings,
@@ -846,4 +946,5 @@ def create_sake_tools(
         search_instagram_sake,
         search_restaurants_with_sake,
         search_sake_locations,
+        search_sake_online_shops,
     ]
