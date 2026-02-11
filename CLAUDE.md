@@ -55,8 +55,10 @@ def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str]
 3. `search_social_media_hashtag` - Search Twitter/X, Instagram, and Facebook by hashtag via Tavily
 4. `search_twitter_sake` - Twitter/X search for sake discussions and trends via Tavily
 5. `search_instagram_sake` - Instagram posts about a specific sake brand via Tavily
-6. `search_restaurants_with_sake` - Find restaurants/bars that serve a specific sake brand (e.g., "写楽", "獺祭") using Google Places API with interactive map, photos, and clickable Google Maps links
-7. `search_sake_locations` - Find general sake shops, restaurants, or izakayas in a location using Google Places API with interactive map
+6. `search_sake_places` - **Unified location search tool** using Google Places API with interactive map:
+   - WITH sake_name: Find restaurants/bars serving a specific sake brand (e.g., "写楽", "獺祭")
+   - WITHOUT sake_name: Find general sake shops, restaurants, or izakayas in a location
+7. `search_sake_online_shops` - Search for sake available on online sake shops
 
 ### Agent Workflow (agents/sake_agent.py)
 
@@ -180,9 +182,10 @@ When testing the agent:
 5. Test Twitter search for sake discussions
 6. Test Instagram search for sake-related photos and posts
 7. Test cross-platform search using search_social_media_hashtag
-8. Test restaurant searches by specific sake brand (e.g., "写楽が飲める店は？", "Where can I drink Dassai in Tokyo?")
-9. Test general sake location searches (e.g., "東京の日本酒バー", "sake shops in Kyoto")
+8. Test `search_sake_places` with sake_name (e.g., "写楽が飲める店は？", "Where can I drink Dassai in Tokyo?")
+9. Test `search_sake_places` without sake_name (e.g., "東京の日本酒バー", "sake shops in Kyoto")
 10. Verify map displays correctly with photos, reviews, and clickable Google Maps links
+11. Test online shop search for purchasing sake
 
 ## Future Enhancement Ideas
 
