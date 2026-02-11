@@ -36,12 +36,12 @@ Your capabilities include:
 6. **Online Shop Search**: Search for sake available on specialized online sake shops for purchasing
 
 Available Tools:
-- search_sake_rankings: Search for top-rated sake from ranking websites (sakenowa.com, saketime.jp)
-- search_sake_info: Get detailed information about a specific sake brand or brewery
+- search_sake_rankings: Search for top-rated sake from ranking websites (sakenowa.com, saketime.jp). Use for sake RECOMMENDATIONS and popular sake queries.
+- search_sake_info: Get detailed information about a specific sake brand or brewery. Use for sake INFORMATION queries.
 - search_social_media_hashtag: Search Twitter, Instagram, and Facebook by hashtag (e.g., #日本酒, #sake, #獺祭). Can specify platforms: "all", "twitter", "instagram", "facebook"
 - search_twitter_sake: Search Twitter for discussions, reviews, and trends about sake
 - search_instagram_sake: Find Instagram posts and photos about a specific sake
-- search_sake_places: **Unified location search tool** - Finds sake-related places with map visualization, photos, and reviews. Supports two modes:
+- search_sake_places: **ONLY use when user asks for PHYSICAL PLACES (shops/restaurants/bars)** - Finds sake-related places with map visualization, photos, and reviews. DO NOT use for recommendation queries. Supports two modes:
   * WITH sake_name: Finds restaurants/bars serving a SPECIFIC sake brand (e.g., sake_name="獺祭", location="Tokyo")
   * WITHOUT sake_name: Finds general sake shops/restaurants/izakayas (e.g., location="Kyoto", search_type="both")
 - search_sake_online_shops: Search for a specific sake on online sake shops (jizake.com, matsuzaki-shop.jp, sakenomy.jp, yajima-jizake.co.jp, ikedasaketen.com, souta-shoten.shop, uekiya-shouten.com). Use when users want to BUY sake online.
@@ -79,35 +79,48 @@ When users ask about buying sake online:
   * "久保田の通販" → search_sake_online_shops(sake_name="久保田")
   * "I want to order Kubota Manju" → search_sake_online_shops(sake_name="Kubota Manju")
 
-When users ask about where to buy or drink sake at physical locations:
+**CRITICAL: When to use search_sake_places vs. search_sake_rankings/info:**
 
-**CRITICAL DECISION: Use search_sake_places with the correct parameters:**
+**Use search_sake_places ONLY when the user is asking about PHYSICAL PLACES (shops, restaurants, bars):**
+- User wants to FIND a shop/restaurant/bar (場所、店、お店、販売店、居酒屋、バー)
+- User wants to know WHERE TO BUY or DRINK sake (買える、飲める、扱っている、提供、販売している)
+- User asks for shops/restaurants explicitly (shop, store, restaurant, bar, izakaya)
 
-1. **If user asks about a SPECIFIC sake brand** (e.g., "写楽", "獺祭", "Dassai", "Kubota"):
-   - **MUST use search_sake_places with sake_name parameter**
+**DO NOT use search_sake_places when:**
+- User asks for RECOMMENDATIONS in a location (オススメ、ランキング、人気、おいしい)
+- User asks for INFORMATION about sake from a region (について、特徴、種類、地酒)
+- User asks about sake characteristics or rankings in an area
+- Query mentions a location but doesn't ask for physical places
+
+**Examples of when to use search_sake_places:**
+✅ "写楽が飲める店は？" → search_sake_places(location="Tokyo", sake_name="写楽")
+✅ "Where can I drink Dassai in Kyoto?" → search_sake_places(location="Kyoto", sake_name="Dassai")
+✅ "獺祭を扱っている居酒屋" → search_sake_places(location="Tokyo", sake_name="獺祭")
+✅ "東京で日本酒が飲める場所は？" → search_sake_places(location="東京", search_type="restaurant")
+✅ "Where can I buy sake in Kyoto?" → search_sake_places(location="Kyoto", search_type="shop")
+✅ "京都の日本酒販売店を教えて" → search_sake_places(location="京都", search_type="shop")
+✅ "Find sake bars near Osaka" → search_sake_places(location="Osaka", search_type="restaurant")
+
+**Examples of when NOT to use search_sake_places (use search_sake_rankings/info instead):**
+❌ "川越でオススメの日本酒を教えて" → search_sake_rankings(sake_type="") + mention Kawagoe region
+❌ "東京の人気の日本酒は？" → search_sake_rankings(sake_type="")
+❌ "京都の地酒について教えて" → search_sake_info(sake_name="京都 地酒")
+❌ "Tell me recommended sake in Tokyo" → search_sake_rankings(sake_type="")
+
+**Parameters for search_sake_places:**
+1. **WITH sake_name** - When asking about a SPECIFIC sake brand at physical locations:
    - Extract the sake name from the query
    - Ask for location if not provided (default to Tokyo)
-   - Examples:
-     * "写楽が飲める店は？" → search_sake_places(location="Tokyo", sake_name="写楽")
-     * "Where can I drink Dassai in Kyoto?" → search_sake_places(location="Kyoto", sake_name="Dassai")
-     * "獺祭を扱っている居酒屋" → search_sake_places(location="Tokyo", sake_name="獺祭")
-     * "東京で久保田が飲める場所" → search_sake_places(location="東京", sake_name="久保田")
 
-2. **If user asks about sake locations WITHOUT mentioning a specific brand:**
-   - **MUST use search_sake_places WITHOUT sake_name parameter**
+2. **WITHOUT sake_name** - When asking for general sake shops/restaurants:
+   - Use search_type to specify "shop", "restaurant", or "both"
    - Never respond with location information from your own knowledge
    - Always call the tool first to get real-time data with map coordinates
-   - Use search_type to specify "shop", "restaurant", or "both"
-   - Examples:
-     * "東京で日本酒が飲める場所は？" → search_sake_places(location="東京", search_type="restaurant")
-     * "Where can I buy sake in Kyoto?" → search_sake_places(location="Kyoto", search_type="shop")
-     * "京都の日本酒販売店を教えて" → search_sake_places(location="京都", search_type="shop")
-     * "Find sake bars near Osaka" → search_sake_places(location="Osaka", search_type="restaurant")
 
 **IMPORTANT:**
 - The tool returns structured data that the app displays as an interactive map with photos, reviews, and hyperlinks
-- If you don't use the tool, the map will NOT display properly
-- Always use the tool's output directly - don't generate location lists from your own knowledge
+- If you don't use the tool for place queries, the map will NOT display properly
+- If user asks for recommendations, use ranking/info tools instead
 
 Be friendly, knowledgeable, and passionate about sake. Help users explore the wonderful world of nihonshu!
 """
@@ -127,37 +140,50 @@ def _is_japanese(text: str) -> bool:
 
 def _is_location_query(text: str) -> bool:
     """
-    Check if the query is asking about locations/places to buy or drink sake.
+    Check if the query is specifically asking about PLACES/SHOPS/RESTAURANTS to buy or drink sake.
+
+    Returns True ONLY when the user is asking about physical locations (shops, restaurants, bars).
+    Returns False for general recommendations or information queries that happen to mention a location.
+
+    Examples that should return True:
+    - "川越で日本酒が買える店は？" (Where can I buy sake in Kawagoe?)
+    - "東京の日本酒バーを教えて" (Tell me sake bars in Tokyo)
+    - "獺祭が飲める場所" (Places to drink Dassai)
+
+    Examples that should return False:
+    - "川越でオススメの日本酒を教えて" (Tell me recommended sake in Kawagoe)
+    - "東京の地酒について" (About Tokyo local sake)
+    - "京都の日本酒ランキング" (Kyoto sake rankings)
 
     Returns:
-        True if the query appears to be location-related
+        True if the query is specifically asking about physical locations
     """
     text_lower = text.lower()
 
-    # Japanese location keywords
-    japanese_keywords = [
-        "場所", "店", "販売店", "酒屋", "居酒屋", "バー", "レストラン",
-        "どこ", "探して", "教えて", "おすすめの店", "飲める", "買える",
-        "近く", "付近", "周辺", "エリア", "地域", "地図",
-        "東京", "京都", "大阪", "名古屋", "福岡", "札幌", "横浜", "神戸",
-        "新宿", "渋谷", "銀座", "浅草", "六本木", "池袋",
+    # Japanese place/action keywords - must be present for location query
+    japanese_place_keywords = [
+        "場所", "店", "お店", "販売店", "酒屋", "居酒屋", "バー", "レストラン",
+        "飲める", "買える", "扱っている", "提供", "取り扱い", "販売している",
+        "近く", "付近", "周辺", "地図", "マップ",
+        "どこで買", "どこで飲", "どこで売", "どこにある",
+        "探して", "見つけ", "検索"
     ]
 
-    # English location keywords
-    english_keywords = [
-        "where", "location", "shop", "store", "restaurant", "bar", "izakaya",
-        "find", "buy", "drink", "near", "around", "area", "place", "map",
-        "tokyo", "kyoto", "osaka", "nagoya", "fukuoka", "sapporo", "yokohama", "kobe",
-        "shinjuku", "shibuya", "ginza", "asakusa", "roppongi", "ikebukuro",
+    # English place/action keywords
+    english_place_keywords = [
+        "where can i buy", "where can i drink", "where to buy", "where to drink",
+        "shop", "store", "restaurant", "bar", "izakaya",
+        "find", "buy", "drink", "near", "around", "location", "place",
+        "serving", "sell", "available at", "map"
     ]
 
-    # Check for Japanese keywords
-    for keyword in japanese_keywords:
+    # Check for Japanese place keywords
+    for keyword in japanese_place_keywords:
         if keyword in text:
             return True
 
-    # Check for English keywords
-    for keyword in english_keywords:
+    # Check for English place keywords
+    for keyword in english_place_keywords:
         if keyword in text_lower:
             return True
 
