@@ -18,6 +18,7 @@ graph TB
     subgraph "Presentation Layer"
         UI[Streamlit Web Interface]
         SS[Session State Manager]
+        MAP[Google Maps Renderer]
     end
 
     subgraph "Agent Layer"
@@ -32,11 +33,14 @@ graph TB
         T3[search_social_media_hashtag]
         T4[search_twitter_sake]
         T5[search_instagram_sake]
+        T6[search_sake_places]
+        T7[search_sake_online_shops]
     end
 
     subgraph "External Services"
         TAVILY[Tavily Search API]
         OPENAI[OpenAI API]
+        GMAPS[Google Maps & Places API]
     end
 
     subgraph "Data Sources"
@@ -45,21 +49,26 @@ graph TB
         TW[Twitter/X]
         IG[Instagram]
         FB[Facebook]
+        SHOPS[Online Sake Shops]
     end
 
     UI --> SS
     SS --> AG
     AG --> SM
     SM --> LLM
-    SM --> T1 & T2 & T3 & T4 & T5
-    T1 & T2 & T3 & T4 & T5 --> TAVILY
+    SM --> T1 & T2 & T3 & T4 & T5 & T6 & T7
+    T1 & T2 & T3 & T4 & T5 & T7 --> TAVILY
+    T6 --> GMAPS
     LLM --> OPENAI
-    TAVILY --> SK & ST & TW & IG & FB
+    TAVILY --> SK & ST & TW & IG & FB & SHOPS
+    T6 --> MAP
+    MAP --> UI
 
     style UI fill:#c41e3a,color:#fff
     style AG fill:#2b5797,color:#fff
     style TAVILY fill:#4CAF50,color:#fff
     style OPENAI fill:#10a37f,color:#fff
+    style GMAPS fill:#ea4335,color:#fff
 ```
 
 ---
@@ -154,39 +163,76 @@ stateDiagram-v2
 graph TB
     subgraph "Tool Factory"
         FACTORY[create_sake_tools]
-        CLIENT[TavilyClient]
+        TCLIENT[TavilyClient]
+        GCLIENT[GoogleMaps Client]
     end
 
-    subgraph "Search Tools"
+    subgraph "Web Search Tools"
         RANK[search_sake_rankings]
         INFO[search_sake_info]
         SOCIAL[search_social_media_hashtag]
         TWITTER[search_twitter_sake]
         INSTA[search_instagram_sake]
+        SHOP[search_sake_online_shops]
     end
 
-    FACTORY --> CLIENT
-    FACTORY --> RANK & INFO & SOCIAL & TWITTER & INSTA
-    CLIENT --> RANK & INFO & SOCIAL & TWITTER & INSTA
+    subgraph "Location Tools"
+        PLACES[search_sake_places]
+    end
+
+    FACTORY --> TCLIENT
+    FACTORY --> GCLIENT
+    FACTORY --> RANK & INFO & SOCIAL & TWITTER & INSTA & SHOP & PLACES
+    TCLIENT --> RANK & INFO & SOCIAL & TWITTER & INSTA & SHOP
+    GCLIENT --> PLACES
 
     RANK --> |Domain Filter| SOURCES1[sakenowa.com, saketime.jp]
     INFO --> |No Filter| SOURCES2[All Web]
     SOCIAL --> |Platform Filter| SOURCES3[twitter.com, instagram.com, facebook.com]
     TWITTER --> |Site Filter| SOURCES4[twitter.com, x.com]
     INSTA --> |Domain Filter| SOURCES5[instagram.com]
+    SHOP --> |Domain Filter| SOURCES6[Online sake shops]
+    PLACES --> |Places API| SOURCES7[Google Places with photos & reviews]
 
     style FACTORY fill:#4CAF50,color:#fff
+    style GCLIENT fill:#ea4335,color:#fff
 ```
 
 **Tool Specifications:**
 
-| Tool | Max Results | Search Depth | Content Limit | Domain Filter |
-|------|-------------|--------------|---------------|---------------|
-| search_sake_rankings | 8 | advanced | 500 chars | sakenowa.com, saketime.jp |
-| search_sake_info | 6 | advanced | 600 chars | None |
-| search_social_media_hashtag | 10 | advanced | 300 chars | Platform-based |
-| search_twitter_sake | 10 | advanced | 300 chars | twitter.com, x.com |
-| search_instagram_sake | 10 | advanced | 300 chars | instagram.com |
+| Tool | API | Max Results | Search Depth | Content Limit | Domain Filter |
+|------|-----|-------------|--------------|---------------|---------------|
+| search_sake_rankings | Tavily | 8 | advanced | 500 chars | sakenowa.com, saketime.jp |
+| search_sake_info | Tavily | 6 | advanced | 600 chars | None |
+| search_social_media_hashtag | Tavily | 10 | advanced | 300 chars | Platform-based |
+| search_twitter_sake | Tavily | 10 | advanced | 300 chars | twitter.com, x.com |
+| search_instagram_sake | Tavily | 10 | advanced | 300 chars | instagram.com |
+| search_sake_places | Google Maps | 10 | N/A | N/A | Google Places API |
+| search_sake_online_shops | Tavily | 10 | advanced | 500 chars | jizake.com, matsuzaki-shop.jp, etc. |
+
+**search_sake_places Tool - Dual Mode Operation:**
+
+The `search_sake_places` tool is a unified location search tool that operates in two distinct modes:
+
+1. **Specific Sake Brand Mode** (when `sake_name` parameter is provided):
+   - Finds restaurants/bars/izakayas serving a specific sake brand
+   - Uses Google Places Text Search for better accuracy
+   - Examples: "Find places serving Dassai in Tokyo", "写楽が飲める店は？"
+   - Returns locations with sake brand badge in map markers
+
+2. **General Location Mode** (when `sake_name` parameter is None):
+   - Finds general sake shops, restaurants, or bars in a location
+   - Uses Google Places Nearby Search
+   - Supports `search_type` parameter: "shop", "restaurant", or "both"
+   - Examples: "Find sake shops in Kyoto", "東京の日本酒バーを教えて"
+
+Both modes return:
+- Up to 10 locations with coordinates for map display
+- Photos (up to 3 per location)
+- Reviews (up to 3 per location)
+- Ratings, addresses, phone numbers, websites
+- Google Maps URLs for each location
+- Structured JSON data embedded in response with `MAP_DATA_START/END` markers
 
 ### 4. Configuration (`config/settings.py`)
 
@@ -281,7 +327,38 @@ sequenceDiagram
     App->>User: Display response
 ```
 
-### 3. Tool Execution Flow (Detailed)
+### 3. Map Data Flow (Location Search)
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant App as app.py
+    participant Agent as LangGraph Agent
+    participant Tool as search_sake_places
+    participant GMaps as Google Maps API
+    participant Render as Map Renderer
+
+    User->>App: "Find sake shops in Tokyo"
+    App->>Agent: run_sake_agent()
+    Agent->>Agent: Detect location query
+    Agent->>Tool: search_sake_places(location="Tokyo")
+    Tool->>GMaps: Geocode location
+    GMaps-->>Tool: (lat, lng) coordinates
+    Tool->>GMaps: places_nearby(lat, lng, keyword)
+    GMaps-->>Tool: List of places
+    Tool->>GMaps: place_details(place_id) × N
+    GMaps-->>Tool: Details with photos, reviews
+    Tool-->>Agent: JSON with MAP_DATA markers
+    Agent-->>App: Response with embedded map data
+    App->>App: extract_map_data(response)
+    App->>Render: display_map(map_data)
+    Render->>User: Interactive Google Map with markers
+
+    Note over Tool,GMaps: Fetches up to 10 locations<br/>with photos (3 each)<br/>and reviews (3 each)
+    Note over Render: Renders HTML with<br/>Google Maps JavaScript API<br/>Photos, reviews, clickable links
+```
+
+### 4. Tool Execution Flow (Detailed)
 
 ```mermaid
 flowchart TD
@@ -367,8 +444,9 @@ graph TB
         OPENAI[OpenAI 1.0+]
     end
 
-    subgraph "Search Provider"
+    subgraph "Search & Location Providers"
         TAV[tavily-python 0.3+]
+        GMAP[googlemaps 4.10+]
     end
 
     subgraph "Utilities"
@@ -382,7 +460,7 @@ graph TB
     LG --> LC
     LC --> LCO & LCC
     LCO --> OPENAI
-    LCC --> TAV
+    LCC --> TAV & GMAP
 
     style ST fill:#c41e3a,color:#fff
     style LG fill:#2b5797,color:#fff
@@ -396,6 +474,7 @@ graph TB
 |---------|---------|----------------|---------------|
 | **OpenAI API** | LLM for agent reasoning | API Key | `OPENAI_API_KEY` in secrets |
 | **Tavily API** | Web and social media search | API Key | `TAVILY_API_KEY` in secrets |
+| **Google Maps & Places API** | Location search with photos, reviews, maps | API Key | `GOOGLE_MAPS_API_KEY` in secrets (optional) |
 | **Streamlit Cloud** | Application hosting | OAuth | Automatic deployment |
 
 ---
@@ -464,6 +543,8 @@ graph TD
     TOOLS --> T3[search_social_media_hashtag]
     TOOLS --> T4[search_twitter_sake]
     TOOLS --> T5[search_instagram_sake]
+    TOOLS --> T6[search_sake_places]
+    TOOLS --> T7[search_sake_online_shops]
 
     CHAT --> PROCESS[process_user_input]
     PROCESS --> RUN[run_sake_agent]
@@ -472,7 +553,7 @@ graph TD
 
     INVOKE --> CALL[call_model]
     INVOKE --> TOOL_NODE[ToolNode]
-    TOOL_NODE --> T1 & T2 & T3 & T4 & T5
+    TOOL_NODE --> T1 & T2 & T3 & T4 & T5 & T6 & T7
 
     style MAIN fill:#c41e3a,color:#fff
     style CREATE fill:#2b5797,color:#fff
@@ -536,6 +617,53 @@ Search results are truncated to prevent token overflow:
 if len(content) > 500:
     content = content[:500] + "..."
 ```
+
+### 6. Structured Data Embedding Pattern
+Map data is embedded in agent responses using special markers:
+
+```python
+# In search_sake_places tool:
+output.append("MAP_DATA_START")
+map_data = {
+    "center_lat": lat,
+    "center_lng": lng,
+    "locations": [...]
+}
+output.append(json.dumps(map_data))
+output.append("MAP_DATA_END")
+
+# In app.py:
+map_data = extract_map_data(response_text)
+if map_data:
+    display_map(map_data)
+```
+
+This pattern allows the agent to return both human-readable text and structured data for interactive components in a single response.
+
+### 7. Map Rendering with Google Maps JavaScript API
+Interactive maps are rendered using Streamlit's `components.html()`:
+
+```python
+# Generate HTML with Google Maps JavaScript API
+map_html = f"""
+<script src="https://maps.googleapis.com/maps/api/js?key={api_key}&callback=initMap"></script>
+<script>
+    function initMap() {{
+        // Create map, markers, info windows with photos and reviews
+    }}
+</script>
+"""
+
+# Render in Streamlit
+components.html(map_html, height=650)
+```
+
+Each marker displays:
+- Location name and address
+- Rating with star visualization
+- Up to 3 photos (fetched via Google Photos API)
+- Up to 3 reviews with author and timestamp
+- Clickable Google Maps and website links
 
 ---
 
@@ -607,46 +735,81 @@ graph LR
 
 ---
 
+## Recently Implemented Features
+
+The following features have been successfully implemented in the current version:
+
+1. **✅ Google Maps Integration**
+   - Interactive maps with photos and reviews
+   - Dual-mode location search (specific sake brands vs. general locations)
+   - Real-time place details with ratings and contact information
+
+2. **✅ Online Shop Search**
+   - Search across 7+ specialized Japanese sake online shops
+   - Direct purchase links to sake products
+   - Integration with jizake.com, matsuzaki-shop.jp, sakenomy.jp, and more
+
+3. **✅ Multi-Platform Social Media Search**
+   - Cross-platform hashtag search (Twitter/X, Instagram, Facebook)
+   - Platform-specific search tools for targeted discovery
+   - Real-time social media content aggregation
+
 ## Future Enhancements
 
 ### Potential Architecture Extensions
 
 1. **Caching Layer**
    - Redis for search result caching
-   - Reduce Tavily API costs
+   - Reduce API costs and improve response times
+   - Cache Google Places results for frequently searched locations
 
 2. **User Preferences**
    - Database for user profiles
-   - Personalized recommendations
+   - Personalized recommendations based on taste history
+   - Saved favorite sake and locations
 
 3. **Image Recognition**
    - Vision API integration
-   - Sake label recognition
+   - Sake label recognition and identification
+   - Food pairing suggestions from uploaded photos
 
 4. **Analytics Layer**
-   - Query logging
-   - Usage metrics
-   - Popular sake tracking
+   - Query logging and usage metrics
+   - Popular sake tracking and trend analysis
+   - Regional search pattern analysis
 
 5. **Multi-Agent System**
    - Specialized agents for different tasks
-   - Ranking agent, pairing agent, etc.
+   - Ranking agent, pairing agent, location agent, etc.
+   - Parallel agent execution for complex queries
 
 ---
 
 ## Conclusion
 
-The Japanese Sake Guide App demonstrates a clean, modular architecture that separates concerns across presentation, agent orchestration, and tool execution layers. The LangGraph framework provides a flexible state machine for complex agent workflows, while Streamlit enables rapid UI development. The system is designed for extensibility, with clear patterns for adding new tools, data sources, and capabilities.
+The Japanese Sake Guide App demonstrates a clean, modular architecture that separates concerns across presentation, agent orchestration, and tool execution layers. The LangGraph framework provides a flexible state machine for complex agent workflows, while Streamlit enables rapid UI development with rich interactive components like Google Maps. The system is designed for extensibility, with clear patterns for adding new tools, data sources, and capabilities.
+
+**Current Capabilities:**
+- 7 specialized tools covering rankings, detailed info, social media, and location search
+- Multi-platform social media search (Twitter/X, Instagram, Facebook)
+- Interactive Google Maps with photos, reviews, and ratings
+- Dual-mode location search (specific sake brands vs. general sake locations)
+- Online sake shop integration for purchasing
+- Full bilingual support (English and Japanese)
+- Real-time web search and location data
 
 **Key Strengths:**
-- Clear separation of concerns
-- Language-agnostic design
-- Extensible tool architecture
-- Error-resilient execution
-- Responsive user experience
+- Clear separation of concerns across layers
+- Language-agnostic design with automatic detection
+- Extensible tool architecture via closure-based factory pattern
+- Error-resilient execution with graceful fallbacks
+- Responsive user experience with interactive maps
+- Structured data embedding for rich UI components
 
 **Architecture Principles:**
-- Single Responsibility: Each module has a clear purpose
-- Dependency Injection: API keys bound via closures
-- State Isolation: Session state per user
-- Fail-Safe: Graceful error handling throughout
+- **Single Responsibility**: Each module has a clear purpose
+- **Dependency Injection**: API keys bound via closures
+- **State Isolation**: Session state per user
+- **Fail-Safe**: Graceful error handling throughout
+- **Data Embedding**: Structured data in text responses for interactive components
+- **Progressive Enhancement**: Core features work without optional APIs (e.g., Google Maps)

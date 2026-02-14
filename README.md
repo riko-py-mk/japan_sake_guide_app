@@ -9,8 +9,9 @@ An AI-powered web application to help users discover and learn about Japanese sa
 - **Sake Recommendations** | おすすめ検索: Get personalized sake recommendations based on your preferences
 - **Sake Information** | 銘柄情報: Learn about specific sake brands, breweries, and production methods
 - **Rankings** | ランキング: Access top-rated sake from trusted sources (Sakenowa, Saketime)
-- **Instagram Search** | Instagram検索: Find social media content and reviews about sake
-- **Google Maps Integration** | Google Maps連携: Find sake shops and restaurants with interactive maps, photos, and reviews
+- **Social Media Search** | SNS検索: Find sake-related content on Twitter/X, Instagram, and Facebook
+- **Location Search** | 場所検索: Find sake shops and restaurants with interactive maps, photos, and reviews powered by Google Maps
+- **Online Shop Search** | オンライン購入: Search for sake on specialized online sake shops
 - **Bilingual Support** | 日英対応: Full support for both Japanese and English
 
 ## Tech Stack | 技術スタック
@@ -27,7 +28,9 @@ An AI-powered web application to help users discover and learn about Japanese sa
 The app retrieves sake information from:
 - [Sakenowa](https://sakenowa.com/en/ranking) - Japanese sake database with rankings
 - [Saketime](https://www.saketime.jp/ranking/) - Japanese sake ranking site
-- Instagram (via web search)
+- Social media platforms: Twitter/X, Instagram, Facebook (via Tavily web search)
+- Google Maps & Places API - Location data with photos, reviews, and ratings
+- Online sake shops: jizake.com, matsuzaki-shop.jp, sakenomy.jp, and more
 
 ## Quick Start | クイックスタート
 
@@ -103,22 +106,24 @@ The app retrieves sake information from:
 
 ```
 japan_sake_guide_app/
-├── app.py                 # Main Streamlit application
-├── requirements.txt       # Python dependencies
-├── secrets.toml.example   # Example secrets configuration
-├── README.md             # This file
+├── app.py                  # Main Streamlit application
+├── requirements.txt        # Python dependencies
+├── secrets.toml.example    # Example secrets configuration
+├── README.md              # User-facing documentation
+├── CLAUDE.md              # Developer guide for AI assistants
+├── SYSTEM_DIAGRAM.md      # System architecture diagrams
 ├── .streamlit/
-│   └── config.toml       # Streamlit theme configuration
+│   └── config.toml        # Streamlit theme configuration
 ├── agents/
 │   ├── __init__.py
-│   ├── sake_agent.py     # LangGraph agent workflow
-│   └── tools.py          # Search tools (Tavily, Instagram)
+│   ├── sake_agent.py      # LangGraph agent workflow
+│   └── tools.py           # Agent tools (web search, social media, maps)
 ├── config/
 │   ├── __init__.py
-│   └── settings.py       # Application settings
+│   └── settings.py        # Application settings
 └── utils/
     ├── __init__.py
-    └── helpers.py        # Utility functions
+    └── helpers.py         # Helper functions and constants
 ```
 
 ## Usage Examples | 使用例
@@ -129,8 +134,11 @@ japan_sake_guide_app/
 - "Recommend a fruity sake for beginners"
 - "What sake pairs well with sushi?"
 - "Find Instagram posts about Kubota sake"
-- "Where can I buy sake in Tokyo?"
-- "Show me sake restaurants in Kyoto on a map"
+- "Search for #sake hashtag on social media"
+- "Where can I drink sake in Tokyo?" (shows map)
+- "Find sake shops in Kyoto" (shows interactive map)
+- "Where can I buy Dassai online?"
+- "I want to order Kubota Manju"
 
 ### 日本語
 - "今年人気の日本酒は何ですか？"
@@ -138,8 +146,11 @@ japan_sake_guide_app/
 - "初心者におすすめのフルーティな日本酒は？"
 - "寿司に合う日本酒を教えてください"
 - "久保田のInstagram投稿を探して"
-- "東京で日本酒が買える場所を教えて"
-- "京都の日本酒レストランを地図で見せて"
+- "#日本酒 のSNS投稿を検索して"
+- "東京で日本酒が飲める場所は？" (地図表示)
+- "京都の日本酒販売店を探して" (インタラクティブ地図)
+- "獺祭をネットで購入したい"
+- "久保田 萬寿の通販を探して"
 
 ## API Keys | APIキー
 
