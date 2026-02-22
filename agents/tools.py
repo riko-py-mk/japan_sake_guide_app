@@ -680,6 +680,7 @@ def create_sake_tools(
         - ikedasaketen.com (池田酒店)
         - souta-shoten.shop (創太商店)
         - uekiya-shouten.com (植木屋商店)
+        - shundei.official.ec (旬醍)
 
         Args:
             sake_name: Name of the sake to search for (e.g., "獺祭", "Dassai", "久保田", "写楽")
@@ -702,6 +703,7 @@ def create_sake_tools(
             "ikedasaketen.com",
             "souta-shoten.shop",
             "uekiya-shouten.com",
+            "shundei.official.ec",
         ]
 
         try:
@@ -746,7 +748,8 @@ def create_sake_tools(
                         f"- https://www.yajima-jizake.co.jp/\n"
                         f"- https://ikedasaketen.com/\n"
                         f"- https://souta-shoten.shop/\n"
-                        f"- https://uekiya-shouten.com/"
+                        f"- https://uekiya-shouten.com/\n"
+                        f"- https://shundei.official.ec/"
                     )
                 else:
                     return (
@@ -758,7 +761,8 @@ def create_sake_tools(
                         f"- https://www.yajima-jizake.co.jp/\n"
                         f"- https://ikedasaketen.com/\n"
                         f"- https://souta-shoten.shop/\n"
-                        f"- https://uekiya-shouten.com/"
+                        f"- https://uekiya-shouten.com/\n"
+                        f"- https://shundei.official.ec/"
                     )
 
             return "\n".join(output)
