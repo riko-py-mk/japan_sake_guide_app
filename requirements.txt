@@ -10,3 +10,4 @@ requests>=2.31.0
 httpx>=0.25.0
 pydantic>=2.0.0
 googlemaps>=4.10.0
+streamlit-agraph>=0.0.45
