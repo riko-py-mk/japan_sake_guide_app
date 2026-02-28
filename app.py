@@ -11,6 +11,7 @@ import re
 
 from agents.sake_agent import create_sake_agent, run_sake_agent
 from utils.helpers import detect_language, EXAMPLE_PROMPTS, SIDEBAR_EXAMPLE_PROMPTS
+from utils.sake_network import display_sake_network
 
 
 # Page configuration
@@ -543,6 +544,70 @@ def process_user_input(user_input: str):
                 st.session_state.messages.append({"role": "assistant", "content": error_msg})
 
 
+def render_network_tab():
+    """Render the sake network graph tab content."""
+    lang = st.session_state.language
+    if lang == "en":
+        st.markdown(
+            "### 🕸️ Japanese Sake Network Graph\n"
+            "Interactive network connecting top-ranked sake to their home **prefectures** "
+            "and **flavor profiles** (Fruity, Light, Full Body, Dry, Sweet, Aged, Sparkling)."
+        )
+    else:
+        st.markdown(
+            "### 🕸️ 日本酒ネットワークグラフ\n"
+            "上位ランクの日本酒と**産地（都道府県）**・**フレーバープロファイル**"
+            "（フルーティ・軽快・濃醇・辛口・甘口・熟成・スパークリング）のインタラクティブネットワーク。"
+        )
+    display_sake_network()
+
+
+def render_chat_tab():
+    """Render the AI chat guide tab content."""
+    lang = st.session_state.language
+
+    # Show welcome message if no messages
+    if not st.session_state.messages:
+        if lang == "en":
+            st.markdown(
+                "Welcome to the Japanese Sake Guide! I can help you:\n\n"
+                "- **Find recommendations** based on your taste preferences\n"
+                "- **Learn about specific sake** brands and breweries\n"
+                "- **Discover top-rated sake** from ranking websites\n"
+                "- **Explore social media** for sake content and reviews\n"
+                "- **Find sake shops & restaurants** near you with interactive maps\n\n"
+                "Ask me anything about Japanese sake!"
+            )
+        else:
+            st.markdown(
+                "日本酒ガイドへようこそ！以下のことをお手伝いできます：\n\n"
+                "- お好みに合わせた**おすすめの日本酒**を探す\n"
+                "- **特定の銘柄や蔵元**について詳しく知る\n"
+                "- ランキングサイトから**人気の日本酒**を発見する\n"
+                "- **SNS**で日本酒のコンテンツやレビューを探索する\n"
+                "- **日本酒販売店や飲食店**をマップで探す\n\n"
+                "日本酒について何でも聞いてください！"
+            )
+
+        selected_prompt = render_example_prompts()
+        if selected_prompt:
+            process_user_input(selected_prompt)
+            st.rerun()
+
+    # Render chat history
+    render_chat()
+
+    # Chat input
+    if lang == "en":
+        placeholder = "Ask about sake... (e.g., 'Recommend a fruity sake')"
+    else:
+        placeholder = "日本酒について質問... (例: 'フルーティな日本酒をおすすめして')"
+
+    if user_input := st.chat_input(placeholder):
+        process_user_input(user_input)
+        st.rerun()
+
+
 def main():
     """Main application entry point."""
     # Initialize session state
@@ -578,49 +643,24 @@ def main():
     # Render sidebar
     render_sidebar()
 
-    # Show welcome message if no messages
-    if not st.session_state.messages:
-        lang = st.session_state.language
-
-        if lang == "en":
-            st.markdown(
-                "Welcome to the Japanese Sake Guide! I can help you:\n\n"
-                "- **Find recommendations** based on your taste preferences\n"
-                "- **Learn about specific sake** brands and breweries\n"
-                "- **Discover top-rated sake** from ranking websites\n"
-                "- **Explore social media** for sake content and reviews\n"
-                "- **Find sake shops & restaurants** near you with interactive maps\n\n"
-                "Ask me anything about Japanese sake!"
-            )
-        else:
-            st.markdown(
-                "日本酒ガイドへようこそ！以下のことをお手伝いできます：\n\n"
-                "- お好みに合わせた**おすすめの日本酒**を探す\n"
-                "- **特定の銘柄や蔵元**について詳しく知る\n"
-                "- ランキングサイトから**人気の日本酒**を発見する\n"
-                "- **SNS**で日本酒のコンテンツやレビューを探索する\n"
-                "- **日本酒販売店や飲食店**をマップで探す\n\n"
-                "日本酒について何でも聞いてください！"
-            )
-
-        # Show example prompts
-        selected_prompt = render_example_prompts()
-        if selected_prompt:
-            process_user_input(selected_prompt)
-            st.rerun()
-
-    # Render chat history
-    render_chat()
-
-    # Chat input
-    if st.session_state.language == "en":
-        placeholder = "Ask about sake... (e.g., 'Recommend a fruity sake')"
+    # Main content tabs — Network Graph is the first (default) tab
+    lang = st.session_state.language
+    if lang == "en":
+        tab_network, tab_chat = st.tabs([
+            "🕸️ Sake Network Graph",
+            "💬 AI Sake Guide",
+        ])
     else:
-        placeholder = "日本酒について質問... (例: 'フルーティな日本酒をおすすめして')"
+        tab_network, tab_chat = st.tabs([
+            "🕸️ 日本酒ネットワーク",
+            "💬 AIガイド",
+        ])
 
-    if user_input := st.chat_input(placeholder):
-        process_user_input(user_input)
-        st.rerun()
+    with tab_network:
+        render_network_tab()
+
+    with tab_chat:
+        render_chat_tab()
 
 
 if __name__ == "__main__":
