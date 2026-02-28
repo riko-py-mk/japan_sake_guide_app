@@ -89,8 +89,8 @@ def get_ranking_as_of() -> str:
 # Graph construction
 # ---------------------------------------------------------------------------
 
-def build_network_graph(top_n: int = 25) -> Tuple[List, List, List]:
-    """Build agraph Nodes, Edges and gallery metadata for the top-N sake.
+def build_network_graph(top_n: int = 25) -> Tuple[List, List]:
+    """Build agraph Nodes and Edges for the top-N sake.
 
     Graph structure:
     - Dot node  : sake brand  (color = flavor type, size ∝ rank)
@@ -100,11 +100,10 @@ def build_network_graph(top_n: int = 25) -> Tuple[List, List, List]:
     """
     entries = _load_entries()[:top_n]
     if not entries:
-        return [], [], []
+        return [], []
 
     nodes: List[Node] = []
     edges: List[Edge] = []
-    sake_info_list: List[Dict] = []
     added_prefectures: set = set()
     added_flavors: set = set()
 
@@ -165,100 +164,12 @@ def build_network_graph(top_n: int = 25) -> Tuple[List, List, List]:
             width=1.5,
         ))
 
-        sake_info_list.append({
-            "brand_id":    brand_id,
-            "name":        brand_name,
-            "rank":        rank,
-            "prefecture":  prefecture,
-            "flavor_type": flavor_type,
-            "flavor_info": flavor_info,
-        })
-
-    return nodes, edges, sake_info_list
-
-
-# ---------------------------------------------------------------------------
-# Display helpers
-# ---------------------------------------------------------------------------
-
-def _sake_card_html(sake: Dict) -> str:
-    """Build an HTML card for one sake entry with image + emoji fallback."""
-    brand_id    = sake["brand_id"]
-    flavor_info = sake["flavor_info"]
-    color       = flavor_info.get("color", "#CCCCCC")
-    emoji       = flavor_info.get("emoji", "🍶")
-    image_url   = f"https://sakenowa.com/img/brands/{brand_id}.jpg"
-    # Fallback brand IDs (≥90000) link to the rankings page, not a brand page
-    page_url = (
-        f"https://sakenowa.com/brand/{brand_id}"
-        if brand_id < 90000
-        else "https://sakenowa.com/en/ranking"
-    )
-
-    return f"""
-    <div style="border:1px solid #e0e0e0; border-radius:10px; overflow:hidden;
-                text-align:center; background:#fff;
-                box-shadow:0 2px 6px rgba(0,0,0,0.08); height:100%;">
-      <a href="{page_url}" target="_blank" style="text-decoration:none; color:inherit;">
-        <div style="position:relative; background:#f5f5f5; min-height:120px;
-                    display:flex; align-items:center; justify-content:center;">
-          <img src="{image_url}"
-               style="width:100%; max-height:140px; object-fit:cover; display:block;"
-               onerror="this.style.display='none';
-                        document.getElementById('fb_{brand_id}').style.display='flex';" />
-          <div id="fb_{brand_id}"
-               style="display:none; position:absolute; top:0; left:0; right:0; bottom:0;
-                      background:{color}; align-items:center; justify-content:center;
-                      font-size:3rem; min-height:120px;">{emoji}</div>
-        </div>
-        <div style="padding:8px 6px;">
-          <div style="background:{color}; color:white; font-size:10px; font-weight:bold;
-                      padding:2px 6px; border-radius:10px; display:inline-block;
-                      margin-bottom:4px;">#{sake['rank']}</div>
-          <div style="font-size:13px; font-weight:600; color:#333;
-                      line-height:1.3; margin-bottom:3px;">{sake['name']}</div>
-          <div style="font-size:11px; color:#666;">
-            {sake['prefecture']} &nbsp;|&nbsp; {emoji} {sake['flavor_type']}
-          </div>
-        </div>
-      </a>
-    </div>
-    """
-
-
-def display_sake_gallery(sake_info_list: List[Dict], lang: str = "en") -> None:
-    """Render a card grid of top sake with images from sakenowa.com."""
-    if not sake_info_list:
-        return
-
-    as_of = get_ranking_as_of()
-    st.divider()
-    if lang == "en":
-        st.subheader("🍶 Top Sake Gallery")
-        date_note = f" · As of {as_of}" if as_of else ""
-        st.caption(
-            f"Sake bottle images from [sakenowa.com](https://sakenowa.com){date_note} • "
-            "Click any card to open the sake's page."
-        )
-    else:
-        st.subheader("🍶 人気日本酒ギャラリー")
-        date_note = f" · {as_of} 時点" if as_of else ""
-        st.caption(
-            f"日本酒ラベル画像: [sakenowa.com](https://sakenowa.com) より{date_note} • "
-            "カードをクリックすると詳細ページが開きます。"
-        )
-
-    cols_per_row = 5
-    for row_start in range(0, min(len(sake_info_list), 20), cols_per_row):
-        cols = st.columns(cols_per_row)
-        for col_idx, sake in enumerate(sake_info_list[row_start: row_start + cols_per_row]):
-            with cols[col_idx]:
-                st.markdown(_sake_card_html(sake), unsafe_allow_html=True)
+    return nodes, edges
 
 
 def display_sake_network() -> None:
-    """Render the complete sake network section:
-    flavor legend → node-type legend → agraph → image gallery.
+    """Render the sake network section:
+    flavor legend → node-type legend → agraph.
     """
     if not AGRAPH_AVAILABLE:
         st.error(
@@ -312,7 +223,7 @@ def display_sake_network() -> None:
         "◉ **楕円** = フレーバータイプ"
     )
 
-    nodes, edges, sake_info_list = build_network_graph(top_n=top_n)
+    nodes, edges = build_network_graph(top_n=top_n)
 
     if not nodes:
         st.error(
@@ -333,5 +244,3 @@ def display_sake_network() -> None:
             f"Selected: **{selected_node}**" if lang == "en"
             else f"選択中: **{selected_node}**"
         )
-
-    display_sake_gallery(sake_info_list, lang=lang)
