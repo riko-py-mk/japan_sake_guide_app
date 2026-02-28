@@ -2,17 +2,13 @@
 Sake Network Graph - Interactive visualization of Japanese sake rankings,
 prefectures, and flavor profiles using streamlit-agraph.
 
-Data sources:
-  Primary:  Sakenowa public API (https://muro.sakenowa.com/sakenowa-data/api)
-  Fallback: utils/sake_ranking_fallback.json  (bundled static dataset)
+Data source: utils/sake_ranking_fallback.json
+Refreshed daily at 05:00 JST by the update-sake-rankings GitHub Actions workflow.
 """
 import json
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
 
-import requests
 import streamlit as st
 
 try:
@@ -21,23 +17,7 @@ try:
 except ImportError:
     AGRAPH_AVAILABLE = False
 
-SAKENOWA_API_BASE = "https://muro.sakenowa.com/sakenowa-data/api"
-_FALLBACK_PATH = Path(__file__).parent / "sake_ranking_fallback.json"
-
-# Sakenowa flavor-chart API field (f1–f6) for each flavor type.
-# Keeping this at module level avoids reconstructing the mapping on every call.
-_FLAVOR_API_KEYS: Dict[str, str] = {
-    "Fruity":     "f1",   # フルーティ・華やか
-    "Light":      "f2",   # 穏やか・軽快
-    "Sweet":      "f3",   # 甘い・まろやか
-    "Dry":        "f4",   # 辛口・シャープ
-    "Full Body":  "f5",   # どっしり・重厚
-    "Aged":       "f6",   # 熟成・複雑
-}
-
-_SPARKLING_KEYWORDS = frozenset(
-    ["スパークリング", "発泡", "微発泡", "Sparkling", "sparkling", "awa"]
-)
+_DATA_PATH = Path(__file__).parent / "sake_ranking_fallback.json"
 
 FLAVOR_TYPES: Dict[str, Dict] = {
     "Fruity":    {"color": "#E85D9E", "emoji": "🍎", "ja": "フルーティ・華やか", "desc": "Aromatic, fruity notes"},
@@ -82,129 +62,22 @@ REGION_COLORS: Dict[str, str] = {
 
 
 # ---------------------------------------------------------------------------
-# Data helpers
+# Data loading
 # ---------------------------------------------------------------------------
 
-def classify_flavor(brand_name: str, flavor_chart: Optional[dict]) -> str:
-    """Return the dominant flavor type for a sake brand.
-
-    Sparkling is detected by keyword; for all others the sakenowa f1-f6
-    scores are compared and the highest wins.
-    """
-    if any(kw in brand_name for kw in _SPARKLING_KEYWORDS):
-        return "Sparkling"
-    if not flavor_chart:
-        return "Light"
-    scores = {flavor: flavor_chart.get(key, 0) for flavor, key in _FLAVOR_API_KEYS.items()}
-    return max(scores, key=scores.get)
-
-
-def _get_with_retry(url: str, timeout: int = 8, max_retries: int = 3) -> dict:
-    """GET *url* with exponential-backoff retries. Raises on final failure."""
-    last_exc: Exception = RuntimeError("No attempts made")
-    for attempt in range(max_retries):
-        try:
-            resp = requests.get(url, timeout=timeout)
-            resp.raise_for_status()
-            return resp.json()
-        except Exception as exc:
-            last_exc = exc
-            if attempt < max_retries - 1:
-                time.sleep(2 ** attempt)   # 1 s, 2 s, 4 s
-    raise last_exc
-
-
 @st.cache_data(ttl=3600)
-def _fetch_sakenowa_parallel() -> Tuple[Dict, Dict, Dict, Dict]:
-    """Fetch all four sakenowa endpoints concurrently with retry.
-
-    Returns (brands, areas, rankings, flavors) dicts keyed by ID.
-    Raises on any failure — intentionally no Streamlit side-effects inside
-    a cached function (st.error / st.warning cannot be called here).
-    """
-    endpoints = {
-        "brands":   f"{SAKENOWA_API_BASE}/brands",
-        "areas":    f"{SAKENOWA_API_BASE}/areas",
-        "rankings": f"{SAKENOWA_API_BASE}/rankings",
-        "flavors":  f"{SAKENOWA_API_BASE}/flavor-charts",
-    }
-
-    results: Dict[str, dict] = {}
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        futures = {executor.submit(_get_with_retry, url): key
-                   for key, url in endpoints.items()}
-        for future in as_completed(futures):
-            results[futures[future]] = future.result()  # propagates exceptions
-
-    brands  = {b["id"]: b for b in results["brands"].get("brands", [])}
-    areas   = {a["id"]: a for a in results["areas"].get("areas", [])}
-    rankings = results["rankings"]
-    flavors = {f["brandId"]: f for f in results["flavors"].get("flavorCharts", [])}
-    return brands, areas, rankings, flavors
-
-
-def _api_entries(top_n: int) -> Optional[List[Dict]]:
-    """Parse the top-N sake entries from the live sakenowa API.
-
-    Returns None on any failure so the caller can transparently fall back.
-    """
-    try:
-        brands, areas, rankings_data, flavors = _fetch_sakenowa_parallel()
-    except Exception:
-        return None
-
-    all_rankings = rankings_data.get("rankings", [])
-    ranking_list = next(
-        (r.get("ranking", []) for r in all_rankings if r.get("id") == "overall"),
-        all_rankings[0].get("ranking", []) if all_rankings else [],
-    )
-    if not ranking_list:
-        return None
-
-    entries = []
-    for item in ranking_list[:top_n]:
-        brand_id = item.get("brandId")
-        if brand_id not in brands:
-            continue
-        brand = brands[brand_id]
-        area  = areas.get(brand.get("areaId"), {})
-        name  = brand.get("name", f"Sake #{brand_id}")
-        entries.append({
-            "brand_id":   brand_id,
-            "name":       name,
-            "rank":       item.get("rank", 0),
-            "prefecture": area.get("name", "不明"),
-            "flavor_type": classify_flavor(name, flavors.get(brand_id)),
-        })
-    return entries or None
-
-
-@st.cache_data(ttl=86400)
-def _load_fallback_entries() -> List[Dict]:
-    """Load the bundled static sake dataset from sake_ranking_fallback.json."""
-    with open(_FALLBACK_PATH, encoding="utf-8") as f:
+def _load_entries() -> List[Dict]:
+    """Load and cache sake entries from the pre-built JSON file."""
+    with open(_DATA_PATH, encoding="utf-8") as f:
         data = json.load(f)
     return sorted(data, key=lambda x: x["rank"])
-
-
-def load_sake_entries(top_n: int) -> Tuple[List[Dict], bool]:
-    """Return top-N sake entries from the live API or the static fallback.
-
-    Returns:
-        (entries, used_fallback) — used_fallback is True when the static
-        dataset was used instead of the live API.
-    """
-    entries = _api_entries(top_n)
-    if entries:
-        return entries, False
-    return _load_fallback_entries()[:top_n], True
 
 
 # ---------------------------------------------------------------------------
 # Graph construction
 # ---------------------------------------------------------------------------
 
-def build_network_graph(top_n: int = 25) -> Tuple[List, List, List, bool]:
+def build_network_graph(top_n: int = 25) -> Tuple[List, List, List]:
     """Build agraph Nodes, Edges and gallery metadata for the top-N sake.
 
     Graph structure:
@@ -212,13 +85,10 @@ def build_network_graph(top_n: int = 25) -> Tuple[List, List, List, bool]:
     - Box node  : prefecture  (color = geographic region)
     - Ellipse   : flavor type (large, always visible)
     - Edges     : sake → prefecture, sake → flavor type
-
-    Returns:
-        (nodes, edges, sake_info_list, used_fallback)
     """
-    entries, used_fallback = load_sake_entries(top_n)
+    entries = _load_entries()[:top_n]
     if not entries:
-        return [], [], [], False
+        return [], [], []
 
     nodes: List[Node] = []
     edges: List[Edge] = []
@@ -227,16 +97,15 @@ def build_network_graph(top_n: int = 25) -> Tuple[List, List, List, bool]:
     added_flavors: set = set()
 
     for entry in entries:
-        brand_id   = entry["brand_id"]
-        brand_name = entry["name"]
-        rank       = entry["rank"]
-        prefecture = entry["prefecture"]
+        brand_id    = entry["brand_id"]
+        brand_name  = entry["name"]
+        rank        = entry["rank"]
+        prefecture  = entry["prefecture"]
         flavor_type = entry["flavor_type"]
 
         flavor_info  = FLAVOR_TYPES[flavor_type]
         flavor_color = flavor_info["color"]
-        # Compute region once — used for both the prefecture node color and edge color
-        region = PREFECTURE_TO_REGION.get(prefecture, "Unknown")
+        region       = PREFECTURE_TO_REGION.get(prefecture, "Unknown")
 
         node_size = max(12, 36 - (rank - 1) * 0.7)
 
@@ -285,15 +154,15 @@ def build_network_graph(top_n: int = 25) -> Tuple[List, List, List, bool]:
         ))
 
         sake_info_list.append({
-            "brand_id":   brand_id,
-            "name":       brand_name,
-            "rank":       rank,
-            "prefecture": prefecture,
+            "brand_id":    brand_id,
+            "name":        brand_name,
+            "rank":        rank,
+            "prefecture":  prefecture,
             "flavor_type": flavor_type,
             "flavor_info": flavor_info,
         })
 
-    return nodes, edges, sake_info_list, used_fallback
+    return nodes, edges, sake_info_list
 
 
 # ---------------------------------------------------------------------------
@@ -307,11 +176,11 @@ def _sake_card_html(sake: Dict) -> str:
     color       = flavor_info.get("color", "#CCCCCC")
     emoji       = flavor_info.get("emoji", "🍶")
     image_url   = f"https://sakenowa.com/img/brands/{brand_id}.jpg"
-    # Only link to real sakenowa brand pages (fallback IDs start at 90001)
+    # Fallback brand IDs (≥90000) link to the rankings page, not a brand page
     page_url = (
         f"https://sakenowa.com/brand/{brand_id}"
         if brand_id < 90000
-        else f"https://sakenowa.com/en/ranking"
+        else "https://sakenowa.com/en/ranking"
     )
 
     return f"""
@@ -346,11 +215,7 @@ def _sake_card_html(sake: Dict) -> str:
 
 
 def display_sake_gallery(sake_info_list: List[Dict], lang: str = "en") -> None:
-    """Render a card grid of top sake with images from sakenowa.com.
-
-    Browser-side onerror swaps a broken image for a colored emoji tile,
-    so the gallery always renders even when CDN images are unavailable.
-    """
+    """Render a card grid of top sake with images from sakenowa.com."""
     if not sake_info_list:
         return
 
@@ -427,8 +292,7 @@ def display_sake_network() -> None:
         "◉ **楕円** = フレーバータイプ"
     )
 
-    with st.spinner("Loading sake ranking data… | ランキングデータを読み込み中…"):
-        nodes, edges, sake_info_list, used_fallback = build_network_graph(top_n=top_n)
+    nodes, edges, sake_info_list = build_network_graph(top_n=top_n)
 
     if not nodes:
         st.error(
@@ -437,15 +301,6 @@ def display_sake_network() -> None:
             "データを読み込めませんでした。ページを再読み込みしてください。"
         )
         return
-
-    if used_fallback:
-        st.info(
-            "📦 Showing curated sake data — live rankings from sakenowa.com are "
-            "temporarily unavailable."
-            if lang == "en" else
-            "📦 キュレーション済みの日本酒データを表示しています"
-            "（sakenowa.com のライブランキングは一時的に利用できません）。"
-        )
 
     selected_node = agraph(
         nodes=nodes,
