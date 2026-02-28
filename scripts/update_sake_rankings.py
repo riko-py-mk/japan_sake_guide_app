@@ -68,6 +68,8 @@ def build_entries(top_n: int) -> List[Dict]:
     """Fetch all required sakenowa endpoints and return a ranked entry list."""
     print("Fetching brands …")
     brands_data = fetch(f"{SAKENOWA_API_BASE}/brands")
+    print("Fetching breweries …")
+    breweries_data = fetch(f"{SAKENOWA_API_BASE}/breweries")
     print("Fetching areas …")
     areas_data = fetch(f"{SAKENOWA_API_BASE}/areas")
     print("Fetching rankings …")
@@ -75,9 +77,12 @@ def build_entries(top_n: int) -> List[Dict]:
     print("Fetching flavor charts …")
     flavors_data = fetch(f"{SAKENOWA_API_BASE}/flavor-charts")
 
-    brands  = {b["id"]: b for b in brands_data.get("brands", [])}
-    areas   = {a["id"]: a for a in areas_data.get("areas", [])}
-    flavors = {f["brandId"]: f for f in flavors_data.get("flavorCharts", [])}
+    # Brand → breweryId → brewery → areaId → area (two-hop lookup for prefecture)
+    brands     = {b["id"]: b for b in brands_data.get("brands", [])}
+    breweries  = {b["id"]: b for b in breweries_data.get("breweries", [])}
+    areas      = {a["id"]: a for a in areas_data.get("areas", [])}
+    # flavor-charts key is "flavorChart" (singular) in the actual API response
+    flavors    = {f["brandId"]: f for f in flavors_data.get("flavorChart", [])}
 
     # The /rankings response shape is:
     #   { "yearMonth": "YYYYMM", "overall": [{rank, brandId, score}, ...], "areas": [...] }
@@ -99,9 +104,10 @@ def build_entries(top_n: int) -> List[Dict]:
         brand_id = item.get("brandId")
         if brand_id not in brands:
             continue
-        brand = brands[brand_id]
-        area  = areas.get(brand.get("areaId"), {})
-        name  = brand.get("name", f"Sake #{brand_id}")
+        brand    = brands[brand_id]
+        brewery  = breweries.get(brand.get("breweryId"), {})
+        area     = areas.get(brewery.get("areaId"), {})
+        name     = brand.get("name", f"Sake #{brand_id}")
         entries.append({
             "rank":        item.get("rank", 0),
             "brand_id":    brand_id,
