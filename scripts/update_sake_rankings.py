@@ -77,12 +77,22 @@ def build_entries(top_n: int) -> List[Dict]:
     print("Fetching flavor charts …")
     flavors_data = fetch(f"{SAKENOWA_API_BASE}/flavor-charts")
 
+    # --- Structural diagnostics (helps catch API key changes in CI logs) ---
+    print(f"  brands      keys={list(brands_data.keys())}  "
+          f"first={next(iter(brands_data.get('brands') or brands_data.get('brand') or []), None)}")
+    print(f"  breweries   keys={list(breweries_data.keys())}  "
+          f"first={next(iter(breweries_data.get('breweries') or breweries_data.get('brewery') or []), None)}")
+    print(f"  areas       keys={list(areas_data.keys())}  "
+          f"first={next(iter(areas_data.get('areas') or areas_data.get('area') or []), None)}")
+    print(f"  flavor-charts keys={list(flavors_data.keys())}  "
+          f"first={next(iter(flavors_data.get('flavorChart') or flavors_data.get('flavorCharts') or []), None)}")
+
     # Brand → breweryId → brewery → areaId → area (two-hop lookup for prefecture)
-    brands     = {b["id"]: b for b in brands_data.get("brands", [])}
-    breweries  = {b["id"]: b for b in breweries_data.get("breweries", [])}
-    areas      = {a["id"]: a for a in areas_data.get("areas", [])}
+    brands     = {b["id"]: b for b in (brands_data.get("brands") or brands_data.get("brand") or [])}
+    breweries  = {b["id"]: b for b in (breweries_data.get("breweries") or breweries_data.get("brewery") or [])}
+    areas      = {a["id"]: a for a in (areas_data.get("areas") or areas_data.get("area") or [])}
     # flavor-charts key is "flavorChart" (singular) in the actual API response
-    flavors    = {f["brandId"]: f for f in flavors_data.get("flavorChart", [])}
+    flavors    = {f["brandId"]: f for f in (flavors_data.get("flavorChart") or flavors_data.get("flavorCharts") or [])}
 
     # The /rankings response shape is:
     #   { "yearMonth": "YYYYMM", "overall": [{rank, brandId, score}, ...], "areas": [...] }
@@ -104,15 +114,25 @@ def build_entries(top_n: int) -> List[Dict]:
         brand_id = item.get("brandId")
         if brand_id not in brands:
             continue
-        brand    = brands[brand_id]
-        brewery  = breweries.get(brand.get("breweryId"), {})
-        area     = areas.get(brewery.get("areaId"), {})
-        name     = brand.get("name", f"Sake #{brand_id}")
+        brand      = brands[brand_id]
+        brewery_id = brand.get("breweryId")
+        brewery    = breweries.get(brewery_id, {})
+        area_id    = brewery.get("areaId")
+        area       = areas.get(area_id, {})
+        name       = brand.get("name", f"Sake #{brand_id}")
+        prefecture = area.get("name", "不明")
+
+        # Detailed trace for the first entry so CI logs confirm the lookup chain
+        if len(entries) == 0:
+            print(f"  [trace rank-1] brand={brand}  brewery_id={brewery_id}"
+                  f"  brewery={brewery}  area_id={area_id}  area={area}"
+                  f"  prefecture={prefecture!r}")
+
         entries.append({
             "rank":        item.get("rank", 0),
             "brand_id":    brand_id,
             "name":        name,
-            "prefecture":  area.get("name", "不明"),
+            "prefecture":  prefecture,
             "flavor_type": classify_flavor(name, flavors.get(brand_id)),
         })
 
