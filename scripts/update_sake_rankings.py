@@ -12,6 +12,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -124,11 +125,15 @@ def main() -> None:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    payload = {
+        "as_of": date.today().isoformat(),   # e.g. "2026-02-28"
+        "entries": entries,
+    }
     OUTPUT_PATH.write_text(
-        json.dumps(entries, ensure_ascii=False, indent=2),
+        json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"Written {len(entries)} entries to {OUTPUT_PATH}")
+    print(f"Written {len(entries)} entries to {OUTPUT_PATH}  (as_of {payload['as_of']})")
 
 
 if __name__ == "__main__":

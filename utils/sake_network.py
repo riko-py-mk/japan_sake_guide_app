@@ -66,11 +66,23 @@ REGION_COLORS: Dict[str, str] = {
 # ---------------------------------------------------------------------------
 
 @st.cache_data(ttl=3600)
-def _load_entries() -> List[Dict]:
-    """Load and cache sake entries from the pre-built JSON file."""
+def _load_data() -> dict:
+    """Load and cache the full ranking payload from the pre-built JSON file."""
     with open(_DATA_PATH, encoding="utf-8") as f:
-        data = json.load(f)
-    return sorted(data, key=lambda x: x["rank"])
+        raw = json.load(f)
+    # Support legacy format (plain list) and current format ({as_of, entries})
+    if isinstance(raw, list):
+        return {"as_of": None, "entries": raw}
+    return raw
+
+
+def _load_entries() -> List[Dict]:
+    return sorted(_load_data()["entries"], key=lambda x: x["rank"])
+
+
+def get_ranking_as_of() -> str:
+    """Return the ISO date string when the ranking data was last fetched, or ''."""
+    return _load_data().get("as_of") or ""
 
 
 # ---------------------------------------------------------------------------
@@ -219,17 +231,20 @@ def display_sake_gallery(sake_info_list: List[Dict], lang: str = "en") -> None:
     if not sake_info_list:
         return
 
+    as_of = get_ranking_as_of()
     st.divider()
     if lang == "en":
         st.subheader("🍶 Top Sake Gallery")
+        date_note = f" · As of {as_of}" if as_of else ""
         st.caption(
-            "Sake bottle images from [sakenowa.com](https://sakenowa.com) • "
+            f"Sake bottle images from [sakenowa.com](https://sakenowa.com){date_note} • "
             "Click any card to open the sake's page."
         )
     else:
         st.subheader("🍶 人気日本酒ギャラリー")
+        date_note = f" · {as_of} 時点" if as_of else ""
         st.caption(
-            "日本酒ラベル画像: [sakenowa.com](https://sakenowa.com) より • "
+            f"日本酒ラベル画像: [sakenowa.com](https://sakenowa.com) より{date_note} • "
             "カードをクリックすると詳細ページが開きます。"
         )
 
@@ -254,16 +269,21 @@ def display_sake_network() -> None:
 
     lang = st.session_state.get("language", "en")
 
+    as_of = get_ranking_as_of()
     if lang == "en":
         st.markdown(
             "Explore how Japan's top-ranked sake relate to their home **prefectures** "
             "and **flavor profiles**. Drag nodes to rearrange — click a node to see details."
         )
+        if as_of:
+            st.caption(f"Rankings as of {as_of}")
     else:
         st.markdown(
             "日本のトップランク日本酒と**産地（都道府県）**・**フレーバープロファイル**の関係をインタラクティブに探索。"
             "ノードをドラッグして動かしたり、クリックして詳細を確認できます。"
         )
+        if as_of:
+            st.caption(f"ランキング基準日: {as_of}")
 
     ctrl_col, legend_col = st.columns([1, 3])
     with ctrl_col:
