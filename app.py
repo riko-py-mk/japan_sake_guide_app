@@ -643,24 +643,24 @@ def main():
     # Render sidebar
     render_sidebar()
 
-    # Main content tabs — Network Graph is the first (default) tab
+    # Main content tabs — AI Guide is the first (default) tab
     lang = st.session_state.language
     if lang == "en":
-        tab_network, tab_chat = st.tabs([
-            "🕸️ Sake Network Graph",
+        tab_chat, tab_network = st.tabs([
             "💬 AI Sake Guide",
+            "🕸️ Sake Network Graph",
         ])
     else:
-        tab_network, tab_chat = st.tabs([
-            "🕸️ 日本酒ネットワーク",
+        tab_chat, tab_network = st.tabs([
             "💬 AIガイド",
+            "🕸️ 日本酒ネットワーク",
         ])
-
-    with tab_network:
-        render_network_tab()
 
     with tab_chat:
         render_chat_tab()
+
+    with tab_network:
+        render_network_tab()
 
 
 if __name__ == "__main__":
