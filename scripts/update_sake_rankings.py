@@ -12,6 +12,7 @@ import argparse
 import json
 import sys
 import time
+from datetime import date
 from pathlib import Path
 from typing import Dict, List, Optional
 
@@ -78,13 +79,20 @@ def build_entries(top_n: int) -> List[Dict]:
     areas   = {a["id"]: a for a in areas_data.get("areas", [])}
     flavors = {f["brandId"]: f for f in flavors_data.get("flavorCharts", [])}
 
-    all_rankings = rankings_data.get("rankings", [])
-    ranking_list = next(
-        (r.get("ranking", []) for r in all_rankings if r.get("id") == "overall"),
-        all_rankings[0].get("ranking", []) if all_rankings else [],
-    )
+    # The /rankings response shape is:
+    #   { "yearMonth": "YYYYMM", "overall": [{rank, brandId, score}, ...], "areas": [...] }
+    # "overall" is a top-level key — NOT a nested rankings array.
+    year_month = rankings_data.get("yearMonth", "unknown")
+    print(f"Rankings period: {year_month}  (overall entries: {len(rankings_data.get('overall', []))})")
+
+    ranking_list = rankings_data.get("overall", [])
     if not ranking_list:
-        raise RuntimeError("No ranking data returned by sakenowa API")
+        # Log the actual keys to aid debugging if the shape changes again
+        print(f"DEBUG rankings keys: {list(rankings_data.keys())}", file=sys.stderr)
+        raise RuntimeError(
+            "No overall ranking data found. "
+            f"Available keys: {list(rankings_data.keys())}"
+        )
 
     entries: List[Dict] = []
     for item in ranking_list[:top_n]:
@@ -117,11 +125,15 @@ def main() -> None:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
 
+    payload = {
+        "as_of": date.today().isoformat(),   # e.g. "2026-02-28"
+        "entries": entries,
+    }
     OUTPUT_PATH.write_text(
-        json.dumps(entries, ensure_ascii=False, indent=2),
+        json.dumps(payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"Written {len(entries)} entries to {OUTPUT_PATH}")
+    print(f"Written {len(entries)} entries to {OUTPUT_PATH}  (as_of {payload['as_of']})")
 
 
 if __name__ == "__main__":
