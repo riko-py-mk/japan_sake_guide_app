@@ -81,6 +81,7 @@ graph TB
 - Page configuration and UI rendering
 - API key validation
 - Session state initialization and management
+- Tab management (AI Sake Guide, Sake Network Graph)
 - Chat interface rendering
 - User input processing
 - Language preference management
@@ -93,18 +94,26 @@ graph LR
         CHECK[check_api_keys]
         AGENT_INIT[initialize_agent]
         SIDEBAR[render_sidebar]
+        TAB_CHAT[render_chat_tab]
+        TAB_NET[render_network_tab]
         CHAT[render_chat]
         PROCESS[process_user_input]
         EXAMPLES[render_example_prompts]
+        EXTRACT[extract_map_data]
+        DISPLAY_MAP[display_map]
     end
 
     MAIN --> INIT
     MAIN --> CHECK
     MAIN --> AGENT_INIT
     MAIN --> SIDEBAR
-    MAIN --> CHAT
-    MAIN --> EXAMPLES
+    MAIN --> TAB_CHAT
+    MAIN --> TAB_NET
+    TAB_CHAT --> CHAT
+    TAB_CHAT --> EXAMPLES
     PROCESS --> CHAT
+    PROCESS --> EXTRACT
+    EXTRACT --> DISPLAY_MAP
 
     style MAIN fill:#c41e3a,color:#fff
 ```
@@ -114,6 +123,11 @@ graph LR
 - `messages` - Display message history (list of dicts)
 - `chat_history` - Agent message history (list of BaseMessage objects)
 - `language` - Current UI language ("en" or "ja")
+- `google_maps_configured` - Boolean flag for Google Maps availability
+
+**Application Tabs:**
+- **AI Sake Guide** (`tab_chat`) - AI chatbot for sake discovery and Q&A
+- **Sake Network Graph** (`tab_network`) - Interactive network visualization of sake rankings
 
 ### 2. Agent Workflow (`agents/sake_agent.py`)
 
@@ -267,6 +281,54 @@ class Settings:
 **Constants:**
 - `EXAMPLE_PROMPTS` - 4 example prompts per language
 - `SIDEBAR_EXAMPLE_PROMPTS` - Tool-categorized examples for sidebar
+
+### 6. Sake Network Graph (`utils/sake_network.py`)
+
+**Responsibilities:**
+- Interactive network graph visualization using `streamlit-agraph`
+- Mapping top-ranked sake to prefectures and flavor profiles
+- Graceful fallback when `streamlit-agraph` is not installed
+
+```mermaid
+graph TB
+    subgraph "sake_network.py"
+        NETWORK[display_sake_network]
+        DATA[Load sake_ranking_fallback.json]
+        NODES[Build Node List]
+        EDGES[Build Edge List]
+        RENDER[agraph render]
+    end
+
+    subgraph "Node Types"
+        SAKE_NODE[Sake Nodes - red]
+        PREF_NODE[Prefecture Nodes - blue]
+        FLAVOR_NODE[Flavor Nodes - color-coded]
+    end
+
+    subgraph "Data Source"
+        JSON[sake_ranking_fallback.json]
+        GH_ACTION[GitHub Actions - daily refresh]
+    end
+
+    NETWORK --> DATA
+    DATA --> JSON
+    GH_ACTION --> JSON
+    DATA --> NODES
+    DATA --> EDGES
+    NODES --> SAKE_NODE & PREF_NODE & FLAVOR_NODE
+    NODES --> RENDER
+    EDGES --> RENDER
+
+    style NETWORK fill:#9C27B0,color:#fff
+    style JSON fill:#FF9800,color:#fff
+```
+
+**Flavor Profiles Visualized:**
+- Fruity (🍎), Light (💧), Sweet (🍯), Dry (🌾), Full Body (🍺), Aged (🪨), Sparkling (✨)
+
+**Data Refresh:**
+- `sake_ranking_fallback.json` is refreshed daily at 05:00 JST by a GitHub Actions workflow
+- Falls back to cached data if the live fetch fails
 
 ---
 
@@ -431,6 +493,7 @@ graph LR
 graph TB
     subgraph "Frontend Layer"
         ST[Streamlit 1.28+]
+        AGR[streamlit-agraph - Network Graph]
     end
 
     subgraph "Agent Framework"
@@ -457,12 +520,14 @@ graph TB
     end
 
     ST --> LG
+    ST --> AGR
     LG --> LC
     LC --> LCO & LCC
     LCO --> OPENAI
     LCC --> TAV & GMAP
 
     style ST fill:#c41e3a,color:#fff
+    style AGR fill:#9C27B0,color:#fff
     style LG fill:#2b5797,color:#fff
     style OPENAI fill:#10a37f,color:#fff
     style TAV fill:#4CAF50,color:#fff
@@ -502,12 +567,15 @@ graph TD
 
     subgraph "Utils"
         UH[utils/helpers.py]
+        UN[utils/sake_network.py]
         UI[utils/__init__.py]
+        JSON[utils/sake_ranking_fallback.json]
     end
 
     APP --> SA
     APP --> CS
     APP --> UH
+    APP --> UN
     SA --> AT
     SA --> AI
     AT --> CS
@@ -515,12 +583,15 @@ graph TD
     AI --> AT
     CS --> CI
     UH --> UI
+    UN --> JSON
 
     style APP fill:#c41e3a,color:#fff
     style SA fill:#2b5797,color:#fff
     style AT fill:#4CAF50,color:#fff
     style CS fill:#FF9800,color:#fff
     style UH fill:#9C27B0,color:#fff
+    style UN fill:#9C27B0,color:#fff
+    style JSON fill:#795548,color:#fff
 ```
 
 ### Function Call Hierarchy
@@ -531,8 +602,12 @@ graph TD
     MAIN --> CHECK[check_api_keys]
     MAIN --> AGENT_INIT[initialize_agent]
     MAIN --> SIDEBAR[render_sidebar]
-    MAIN --> CHAT[render_chat]
-    MAIN --> EXAMPLES[render_example_prompts]
+    MAIN --> TAB_CHAT[render_chat_tab]
+    MAIN --> TAB_NET[render_network_tab]
+
+    TAB_CHAT --> CHAT[render_chat]
+    TAB_CHAT --> EXAMPLES[render_example_prompts]
+    TAB_NET --> NETWORK[display_sake_network]
 
     AGENT_INIT --> CREATE[create_sake_agent]
     CREATE --> TOOLS[create_sake_tools]
@@ -548,6 +623,8 @@ graph TD
 
     CHAT --> PROCESS[process_user_input]
     PROCESS --> RUN[run_sake_agent]
+    PROCESS --> EXTRACT[extract_map_data]
+    EXTRACT --> DISPLAY_MAP[display_map]
     RUN --> DETECT[_is_japanese]
     RUN --> INVOKE[agent.invoke]
 
@@ -558,6 +635,7 @@ graph TD
     style MAIN fill:#c41e3a,color:#fff
     style CREATE fill:#2b5797,color:#fff
     style TOOLS fill:#4CAF50,color:#fff
+    style NETWORK fill:#9C27B0,color:#fff
 ```
 
 ---
@@ -745,14 +823,20 @@ The following features have been successfully implemented in the current version
    - Real-time place details with ratings and contact information
 
 2. **✅ Online Shop Search**
-   - Search across 7+ specialized Japanese sake online shops
+   - Search across 8 specialized Japanese sake online shops
    - Direct purchase links to sake products
-   - Integration with jizake.com, matsuzaki-shop.jp, sakenomy.jp, and more
+   - Integration with jizake.com, matsuzaki-shop.jp, sakenomy.jp, shundei.official.ec, and more
 
 3. **✅ Multi-Platform Social Media Search**
    - Cross-platform hashtag search (Twitter/X, Instagram, Facebook)
    - Platform-specific search tools for targeted discovery
    - Real-time social media content aggregation
+
+4. **✅ Sake Network Graph**
+   - Interactive node-edge visualization powered by `streamlit-agraph`
+   - Connects top-ranked sake to home prefectures and 7 flavor profiles
+   - Dedicated UI tab ("Sake Network Graph" / "日本酒ネットワーク")
+   - Ranking data refreshed daily via GitHub Actions and cached in `sake_ranking_fallback.json`
 
 ## Future Enhancements
 
@@ -794,7 +878,8 @@ The Japanese Sake Guide App demonstrates a clean, modular architecture that sepa
 - Multi-platform social media search (Twitter/X, Instagram, Facebook)
 - Interactive Google Maps with photos, reviews, and ratings
 - Dual-mode location search (specific sake brands vs. general sake locations)
-- Online sake shop integration for purchasing
+- Online sake shop integration across 8 specialized shops
+- Sake Network Graph: interactive visualization of sake, prefectures, and flavor profiles
 - Full bilingual support (English and Japanese)
 - Real-time web search and location data
 
