@@ -9,6 +9,7 @@ An AI-powered web application to help users discover and learn about Japanese sa
 - **Sake Recommendations** | おすすめ検索: Get personalized sake recommendations based on your preferences
 - **Sake Information** | 銘柄情報: Learn about specific sake brands, breweries, and production methods
 - **Rankings** | ランキング: Access top-rated sake from trusted sources (Sakenowa, Saketime)
+- **Sake Network Graph** | 日本酒ネットワーク: Interactive network visualization connecting top-ranked sake to their home prefectures and flavor profiles
 - **Social Media Search** | SNS検索: Find sake-related content on Twitter/X, Instagram, and Facebook
 - **Location Search** | 場所検索: Find sake shops and restaurants with interactive maps, photos, and reviews powered by Google Maps
 - **Online Shop Search** | オンライン購入: Search for sake on specialized online sake shops
@@ -123,7 +124,9 @@ japan_sake_guide_app/
 │   └── settings.py        # Application settings
 └── utils/
     ├── __init__.py
-    └── helpers.py         # Helper functions and constants
+    ├── helpers.py         # Helper functions and constants
+    ├── sake_network.py    # Sake network graph visualization (streamlit-agraph)
+    └── sake_ranking_fallback.json  # Cached sake ranking data (refreshed daily)
 ```
 
 ## Usage Examples | 使用例
@@ -139,6 +142,7 @@ japan_sake_guide_app/
 - "Find sake shops in Kyoto" (shows interactive map)
 - "Where can I buy Dassai online?"
 - "I want to order Kubota Manju"
+- Switch to the **Sake Network Graph** tab to explore sake by prefecture and flavor profile
 
 ### 日本語
 - "今年人気の日本酒は何ですか？"
@@ -151,6 +155,7 @@ japan_sake_guide_app/
 - "京都の日本酒販売店を探して" (インタラクティブ地図)
 - "獺祭をネットで購入したい"
 - "久保田 萬寿の通販を探して"
+- **日本酒ネットワーク**タブで産地・フレーバー別にインタラクティブ探索
 
 ## API Keys | APIキー
 
