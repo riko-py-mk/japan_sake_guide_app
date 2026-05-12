@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Japanese Sake Guide App — Repository Overview</title>
+  <style>
+    /* ── Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --red:      #c41e3a;
+      --red-dark: #8b0000;
+      --red-soft: rgba(196, 30, 58, 0.08);
+      --bg:       #fafafa;
+      --surface:  #ffffff;
+      --border:   #e5e7eb;
+      --text:     #1a1a1a;
+      --muted:    #6b7280;
+      --code-bg:  #f3f4f6;
+      --mono:     'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      font-size: 15px;
+    }
+
+    /* ── Layout ── */
+    .page-wrap { max-width: 1100px; margin: 0 auto; padding: 0 24px 80px; }
+
+    /* ── Hero ── */
+    .hero {
+      background: linear-gradient(135deg, var(--red-dark) 0%, var(--red) 100%);
+      color: #fff;
+      padding: 56px 24px 48px;
+      text-align: center;
+    }
+    .hero .emoji { font-size: 64px; display: block; margin-bottom: 16px; }
+    .hero h1 { font-size: 2.4rem; font-weight: 700; letter-spacing: -0.5px; }
+    .hero .subtitle { margin-top: 10px; font-size: 1.05rem; opacity: 0.88; }
+    .badges { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 22px; }
+    .badge {
+      background: rgba(255,255,255,0.18);
+      border: 1px solid rgba(255,255,255,0.35);
+      border-radius: 99px;
+      padding: 4px 14px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+    }
+
+    /* ── Section ── */
+    section { padding-top: 56px; }
+    section + section { border-top: 1px solid var(--border); margin-top: 8px; }
+
+    h2 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--red-dark);
+      margin-bottom: 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    h2 .ico { font-size: 1.3rem; }
+
+    h3 {
+      font-size: 1.08rem;
+      font-weight: 700;
+      margin: 28px 0 10px;
+      color: var(--text);
+    }
+
+    p { margin: 8px 0 14px; color: #333; }
+
+    a { color: var(--red); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Cards ── */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 18px;
+      margin-top: 18px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 22px;
+      transition: box-shadow 0.15s;
+    }
+    .card:hover { box-shadow: 0 4px 18px rgba(0,0,0,0.07); }
+    .card .card-icon { font-size: 1.6rem; margin-bottom: 8px; }
+    .card h4 { font-size: 0.97rem; font-weight: 700; margin-bottom: 6px; }
+    .card p { font-size: 0.875rem; color: var(--muted); margin: 0; }
+
+    /* ── File tree ── */
+    .file-tree {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+    .file-tree .dir  { color: var(--red-dark); font-weight: 700; }
+    .file-tree .file { color: #374151; }
+    .file-tree .note { color: var(--muted); font-style: italic; }
+
+    /* ── Code blocks ── */
+    pre, code {
+      font-family: var(--mono);
+      font-size: 0.83rem;
+    }
+    pre {
+      background: #1e2330;
+      color: #cdd6f4;
+      border-radius: 10px;
+      padding: 18px 22px;
+      overflow-x: auto;
+      margin: 14px 0;
+      line-height: 1.7;
+    }
+    code {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--red-dark);
+    }
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      color: inherit;
+    }
+
+    /* ── Tool table ── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+      font-size: 0.875rem;
+    }
+    th {
+      background: var(--red-soft);
+      color: var(--red-dark);
+      font-weight: 700;
+      text-align: left;
+      padding: 10px 14px;
+      border-bottom: 2px solid var(--red);
+    }
+    td {
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--red-soft); }
+    td code { font-size: 0.8rem; }
+
+    /* ── Flow diagram ── */
+    .flow {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0;
+      margin: 20px 0;
+      font-size: 0.88rem;
+    }
+    .flow-box {
+      background: var(--surface);
+      border: 2px solid var(--red);
+      border-radius: 8px;
+      padding: 10px 18px;
+      font-weight: 600;
+      color: var(--red-dark);
+      white-space: nowrap;
+    }
+    .flow-box.decision {
+      background: #fff8e7;
+      border-color: #d97706;
+      color: #92400e;
+      border-radius: 4px;
+      transform: rotate(0deg);
+    }
+    .flow-box.tool { background: #f0fdf4; border-color: #16a34a; color: #14532d; }
+    .flow-box.end  { background: #f5f5f5; border-color: #6b7280; color: #374151; }
+    .flow-arrow {
+      font-size: 1.1rem;
+      color: var(--muted);
+      padding: 0 8px;
+      font-weight: 700;
+    }
+
+    /* ── API key table ── */
+    .key-table { margin-top: 16px; }
+    .key-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .key-row:last-child { border-bottom: none; }
+    .key-badge {
+      flex-shrink: 0;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+    .key-badge.required  { background: #fee2e2; color: #991b1b; }
+    .key-badge.optional  { background: #dbeafe; color: #1e40af; }
+    .key-name { font-family: var(--mono); font-size: 0.88rem; font-weight: 700; min-width: 220px; }
+    .key-desc { color: var(--muted); font-size: 0.875rem; }
+
+    /* ── Inline highlight ── */
+    .highlight { background: var(--red-soft); border-radius: 4px; padding: 2px 6px; }
+
+    /* ── Callout ── */
+    .callout {
+      border-left: 4px solid var(--red);
+      background: var(--red-soft);
+      border-radius: 0 8px 8px 0;
+      padding: 14px 18px;
+      margin: 16px 0;
+      font-size: 0.9rem;
+    }
+    .callout.info { border-color: #2563eb; background: #eff6ff; }
+    .callout strong { display: block; margin-bottom: 4px; }
+
+    /* ── Tag list ── */
+    .tag-list { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .tag {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      padding: 3px 12px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: #374151;
+    }
+
+    /* ── TOC ── */
+    .toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px 24px;
+      margin-top: 32px;
+    }
+    .toc h3 { margin: 0 0 12px; font-size: 0.95rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .toc ol { padding-left: 20px; }
+    .toc li { margin: 6px 0; }
+    .toc a { color: var(--red-dark); font-size: 0.9rem; }
+
+    /* ── Footer ── */
+    footer {
+      text-align: center;
+      padding: 32px 0 0;
+      color: var(--muted);
+      font-size: 0.82rem;
+    }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 1.7rem; }
+      .flow { flex-direction: column; align-items: flex-start; }
+      .flow-arrow { transform: rotate(90deg); padding: 4px 0; }
+      table { font-size: 0.78rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Hero ── -->
+<div class="hero">
+  <span class="emoji">🍶</span>
+  <h1>Japanese Sake Guide App</h1>
+  <p class="subtitle">日本酒ガイド &mdash; AI-powered sake discovery &amp; recommendation</p>
+  <div class="badges">
+    <span class="badge">Streamlit</span>
+    <span class="badge">LangGraph</span>
+    <span class="badge">OpenAI GPT-4o</span>
+    <span class="badge">Tavily Search</span>
+    <span class="badge">Google Maps</span>
+    <span class="badge">Python 3.10+</span>
+  </div>
+</div>
+
+<div class="page-wrap">
+
+  <!-- TOC -->
+  <nav class="toc">
+    <h3>Contents</h3>
+    <ol>
+      <li><a href="#overview">Project Overview</a></li>
+      <li><a href="#structure">Repository Structure</a></li>
+      <li><a href="#architecture">Architecture &amp; Data Flow</a></li>
+      <li><a href="#modules">Module Breakdown</a></li>
+      <li><a href="#tools">Agent Tools Reference</a></li>
+      <li><a href="#agent">LangGraph Agent Workflow</a></li>
+      <li><a href="#ui">Streamlit UI &amp; Session State</a></li>
+      <li><a href="#network">Sake Network Graph</a></li>
+      <li><a href="#config">Configuration &amp; Secrets</a></li>
+      <li><a href="#setup">Local Setup</a></li>
+      <li><a href="#patterns">Key Patterns &amp; Conventions</a></li>
+    </ol>
+  </nav>
+
+  <!-- ── 1. Overview ── -->
+  <section id="overview">
+    <h2><span class="ico">🎯</span> Project Overview</h2>
+    <p>
+      The <strong>Japanese Sake Guide App</strong> is a bilingual (English / Japanese) web application that
+      acts as an AI-powered sake sommelier. Users chat with an agent that can search sake rankings,
+      retrieve brand information, surface social-media content, locate nearby sake shops and restaurants
+      on an interactive Google Map, and find online retailers for purchasing sake.
+    </p>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">💬</div>
+        <h4>AI Chat Guide</h4>
+        <p>Conversational interface powered by GPT-4o with full multi-turn history.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📊</div>
+        <h4>Sake Rankings</h4>
+        <p>Live queries against sakenowa.com and saketime.jp for up-to-date rankings.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📱</div>
+        <h4>Social Media Search</h4>
+        <p>Hashtag and brand searches across Twitter/X, Instagram, and Facebook via Tavily.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🗺️</div>
+        <h4>Interactive Maps</h4>
+        <p>Google Places-powered map with photos, ratings, and reviews embedded in chat.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🛒</div>
+        <h4>Online Shopping</h4>
+        <p>Searches curated Japanese sake e-commerce sites to find where to buy specific brands.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🕸️</div>
+        <h4>Network Graph</h4>
+        <p>Interactive <code>streamlit-agraph</code> visualization linking top sake to prefectures and flavor profiles.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. Structure ── -->
+  <section id="structure">
+    <h2><span class="ico">📁</span> Repository Structure</h2>
+    <div class="file-tree">
+      <span class="dir">japan_sake_guide_app/</span><br>
+      ├── <span class="file">app.py</span>                    <span class="note"># Streamlit entry point — UI, routing, map rendering</span><br>
+      ├── <span class="file">requirements.txt</span>           <span class="note"># Python dependencies</span><br>
+      ├── <span class="file">secrets.toml.example</span>      <span class="note"># Template for API keys</span><br>
+      ├── <span class="file">test_map_extraction.py</span>    <span class="note"># Unit test for MAP_DATA parsing</span><br>
+      ├── <span class="file">CLAUDE.md</span>                  <span class="note"># AI assistant development guide</span><br>
+      ├── <span class="file">README.md</span>                  <span class="note"># User-facing documentation</span><br>
+      ├── <span class="dir">.streamlit/</span><br>
+      │   └── <span class="file">config.toml</span>           <span class="note"># Theme (red #c41e3a), server config</span><br>
+      ├── <span class="dir">agents/</span><br>
+      │   ├── <span class="file">__init__.py</span>            <span class="note"># Public exports: create_sake_tools, create_sake_agent, run_sake_agent</span><br>
+      │   ├── <span class="file">tools.py</span>              <span class="note"># All LangChain @tool definitions (7 tools)</span><br>
+      │   └── <span class="file">sake_agent.py</span>         <span class="note"># LangGraph workflow + system prompt</span><br>
+      ├── <span class="dir">config/</span><br>
+      │   ├── <span class="file">__init__.py</span><br>
+      │   └── <span class="file">settings.py</span>           <span class="note"># Settings dataclass + get_settings()</span><br>
+      ├── <span class="dir">utils/</span><br>
+      │   ├── <span class="file">__init__.py</span><br>
+      │   ├── <span class="file">helpers.py</span>            <span class="note"># detect_language(), EXAMPLE_PROMPTS, SIDEBAR_EXAMPLE_PROMPTS</span><br>
+      │   ├── <span class="file">sake_network.py</span>       <span class="note"># Network graph builder + display_sake_network()</span><br>
+      │   └── <span class="file">sake_ranking_fallback.json</span> <span class="note"># Pre-built ranking data (refreshed by GH Actions)</span><br>
+      └── <span class="dir">scripts/</span><br>
+          └── <span class="file">update_sake_rankings.py</span> <span class="note"># Script run by CI to refresh ranking JSON</span>
+    </div>
+  </section>
+
+  <!-- ── 3. Architecture ── -->
+  <section id="architecture">
+    <h2><span class="ico">🏗️</span> Architecture &amp; Data Flow</h2>
+
+    <h3>High-Level Data Flow</h3>
+    <p>
+      When a user submits a message the Streamlit frontend calls <code>run_sake_agent()</code>,
+      which feeds the message into the LangGraph state machine. The agent decides which tools to invoke,
+      executes them, and returns a final response. If the response contains embedded
+      <code>MAP_DATA_START / MAP_DATA_END</code> markers the UI extracts the JSON and renders an
+      interactive Google Map.
+    </p>
+
+    <div class="flow">
+      <div class="flow-box">User Input</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box"><code>run_sake_agent()</code></div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box decision">LangGraph<br>StateGraph</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box tool">Tool Node<br>(0..N calls)</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">AI Response</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-box">Streamlit UI<br>+ optional Map</div>
+    </div>
+
+    <h3>Technology Stack</h3>
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🖥️</div>
+        <h4>Frontend — Streamlit</h4>
+        <p>Chat UI, sidebar, two tabs (AI Guide / Network Graph), custom CSS with sake-red theme.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🤖</div>
+        <h4>LLM — OpenAI GPT-4o</h4>
+        <p>Temperature 0.7. Bound with tool schemas so the model decides when and which tools to call.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔗</div>
+        <h4>Orchestration — LangGraph</h4>
+        <p>Cyclic StateGraph: agent → conditional routing → tools → agent → … → END.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h4>Search — Tavily API</h4>
+        <p>Advanced web search with domain filtering used for rankings, sake info, and social media.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📍</div>
+        <h4>Maps — Google Places API</h4>
+        <p>Geocoding, Places text/nearby search, place details (photos, reviews, hours).</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">📈</div>
+        <h4>Visualization — streamlit-agraph</h4>
+        <p>Physics-enabled force-directed network graph for sake brand → prefecture → flavor relationships.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. Modules ── -->
+  <section id="modules">
+    <h2><span class="ico">📦</span> Module Breakdown</h2>
+
+    <h3><code>app.py</code> — Streamlit Application Entry Point</h3>
+    <p>
+      All Streamlit page logic lives here. Key responsibilities:
+    </p>
+    <ul style="padding-left:20px; margin-bottom:14px;">
+      <li style="margin:6px 0;"><strong><code>check_api_keys()</code></strong> — Validates <code>OPENAI_API_KEY</code> and <code>TAVILY_API_KEY</code>; warns if Google Maps key is absent.</li>
+      <li style="margin:6px 0;"><strong><code>initialize_agent()</code></strong> — Builds the compiled LangGraph agent once per session, stored in <code>st.session_state.agent</code>.</li>
+      <li style="margin:6px 0;"><strong><code>render_sidebar()</code></strong> — Language toggle (en / ja), categorised example prompts, data source links, clear-chat button.</li>
+      <li style="margin:6px 0;"><strong><code>extract_map_data(response)</code></strong> — Regex-parses <code>MAP_DATA_START … MAP_DATA_END</code> blocks from the agent response and returns a dict.</li>
+      <li style="margin:6px 0;"><strong><code>display_map(map_data)</code></strong> — Injects a full Google Maps JavaScript API page into the chat via <code>components.html()</code>. Renders markers, info windows with photos and reviews, and clickable Google Maps links.</li>
+      <li style="margin:6px 0;"><strong><code>process_user_input(user_input)</code></strong> — Orchestrates one chat turn: call agent, strip map markers, render text then map.</li>
+      <li style="margin:6px 0;"><strong><code>render_chat_tab()</code> / <code>render_network_tab()</code></strong> — Content for the two main tabs.</li>
+    </ul>
+
+    <h3><code>agents/sake_agent.py</code> — LangGraph Workflow</h3>
+    <p>
+      Defines the <code>AgentState</code> TypedDict and assembles the cyclic workflow.
+      Two flavours of the LLM are bound at construction time:
+    </p>
+    <pre><code>llm_with_tools               # Normal: LLM chooses tools freely
+llm_with_forced_location_tool # tool_choice=search_sake_places, used when _is_location_query() is True</code></pre>
+    <p>
+      The <strong>system prompt</strong> (~100 lines) instructs the agent on its sommelier persona,
+      available tools, bilingual response rules, and critically — when to use
+      <code>search_sake_places</code> vs. <code>search_sake_rankings</code>.
+    </p>
+    <p>
+      <strong>Key design decision in <code>run_sake_agent()</code>:</strong>
+      For location queries, the function iterates the final messages in <em>reverse</em> to find the most
+      recent <code>ToolMessage</code> that contains <code>MAP_DATA</code>. It uses that raw tool output
+      as the response text rather than the LLM's summary. This prevents text/map mismatch where the LLM
+      might hallucinate its own list of places that don't match the actual Google Places results
+      embedded in the map JSON.
+    </p>
+
+    <h3><code>agents/tools.py</code> — Tool Definitions</h3>
+    <p>
+      All seven agent tools are <code>@tool</code>-decorated closures created inside the factory
+      <code>create_sake_tools(tavily_api_key, instagram_access_token, google_maps_api_key)</code>.
+      Using closures binds API clients to each tool without exposing keys in global scope.
+    </p>
+
+    <h3><code>utils/helpers.py</code> — Language &amp; Prompt Utilities</h3>
+    <p>
+      <code>detect_language(text)</code> counts Japanese characters (Hiragana U+3040–309F,
+      Katakana U+30A0–30FF, Kanji U+4E00–9FFF); if &gt;20% of alpha characters are Japanese it
+      returns <code>"ja"</code>. The bilingual
+      <code>SIDEBAR_EXAMPLE_PROMPTS</code> and <code>EXAMPLE_PROMPTS</code> dicts drive the sidebar
+      and welcome screen buttons.
+    </p>
+
+    <h3><code>utils/sake_network.py</code> — Network Graph</h3>
+    <p>
+      Loads <code>sake_ranking_fallback.json</code> (refreshed nightly by GitHub Actions) and uses
+      <code>streamlit-agraph</code> to render a physics-enabled force-directed graph.
+      Three node shapes represent sake brands (dot), prefectures (box), and flavor types (ellipse).
+      Colors encode both flavor type and geographic region.
+    </p>
+
+    <h3><code>config/settings.py</code> — Settings Dataclass</h3>
+    <p>
+      <code>Settings</code> is a simple <code>@dataclass</code> holding API keys, model name,
+      temperature, and ranking URLs. <code>get_settings()</code> reads from
+      <code>st.secrets</code> and raises <code>KeyError</code> if required keys are absent.
+    </p>
+  </section>
+
+  <!-- ── 5. Tools ── -->
+  <section id="tools">
+    <h2><span class="ico">🔧</span> Agent Tools Reference</h2>
+    <p>
+      All tools are created by <code>create_sake_tools()</code> in <code>agents/tools.py</code>
+      and returned as a list bound to the LangGraph <code>ToolNode</code>.
+    </p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Tool name</th>
+          <th>API used</th>
+          <th>Purpose</th>
+          <th>Key parameters</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>search_sake_rankings</code></td>
+          <td>Tavily</td>
+          <td>Fetch top-rated sake from sakenowa.com &amp; saketime.jp. Use for recommendations and popularity queries.</td>
+          <td><code>query: str</code></td>
+        </tr>
+        <tr>
+          <td><code>search_sake_info</code></td>
+          <td>Tavily</td>
+          <td>Detailed information about a specific brand or brewery (tasting notes, production method, region).</td>
+          <td><code>sake_name: str</code>, <code>additional_query: str = ""</code></td>
+        </tr>
+        <tr>
+          <td><code>search_social_media_hashtag</code></td>
+          <td>Tavily</td>
+          <td>Cross-platform hashtag search on Twitter/X, Instagram, and Facebook simultaneously.</td>
+          <td><code>hashtag: str</code>, <code>platforms: str = "all"</code></td>
+        </tr>
+        <tr>
+          <td><code>search_twitter_sake</code></td>
+          <td>Tavily</td>
+          <td>Twitter/X-specific search for discussions, reviews, and trends about sake.</td>
+          <td><code>query: str</code></td>
+        </tr>
+        <tr>
+          <td><code>search_instagram_sake</code></td>
+          <td>Tavily</td>
+          <td>Instagram posts and visual content about a specific sake brand.</td>
+          <td><code>sake_name: str</code></td>
+        </tr>
+        <tr>
+          <td><code>search_sake_places</code></td>
+          <td>Google Places API</td>
+          <td>
+            Unified location search. <br>
+            <em>With <code>sake_name</code></em>: restaurants/bars serving a specific brand.<br>
+            <em>Without <code>sake_name</code></em>: general sake shops / izakayas.<br>
+            Returns text list + embedded <code>MAP_DATA</code> JSON for interactive map.
+          </td>
+          <td>
+            <code>location: str</code>,<br>
+            <code>sake_name: str | None</code>,<br>
+            <code>search_type: "shop"|"restaurant"|"both"</code>
+          </td>
+        </tr>
+        <tr>
+          <td><code>search_sake_online_shops</code></td>
+          <td>Tavily</td>
+          <td>Search curated Japanese sake e-commerce sites to find where to purchase a specific sake online.</td>
+          <td><code>sake_name: str</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout" style="margin-top:20px;">
+      <strong>Online shop domains searched by <code>search_sake_online_shops</code></strong>
+      jizake.com &nbsp;·&nbsp; matsuzaki-shop.jp &nbsp;·&nbsp; sakenomy.jp &nbsp;·&nbsp;
+      yajima-jizake.co.jp &nbsp;·&nbsp; ikedasaketen.com &nbsp;·&nbsp;
+      souta-shoten.shop &nbsp;·&nbsp; uekiya-shouten.com &nbsp;·&nbsp; shundei.official.ec
+    </div>
+  </section>
+
+  <!-- ── 6. Agent Workflow ── -->
+  <section id="agent">
+    <h2><span class="ico">🔄</span> LangGraph Agent Workflow</h2>
+
+    <h3>Graph Topology</h3>
+    <div class="flow" style="flex-direction:column; align-items:flex-start; gap:4px;">
+      <div class="flow-box" style="background:#fff0f0;">Entry Point</div>
+      <div class="flow-arrow" style="padding:2px 0 2px 20px;">↓</div>
+      <div class="flow-box"><strong>agent</strong> node — <code>call_model()</code></div>
+      <div class="flow-arrow" style="padding:2px 0 2px 20px;">↓ <em style="color:var(--muted); font-size:0.8rem;">should_continue()</em></div>
+      <div style="display:flex; gap:32px; align-items:flex-start; margin-left:20px;">
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px;">
+          <div class="flow-box decision">has tool_calls? → Yes</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-box tool"><strong>tools</strong> node — <code>ToolNode</code></div>
+          <div class="flow-arrow">↓ loop back</div>
+          <div class="flow-box" style="font-size:0.8rem;">→ agent node</div>
+        </div>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:4px; margin-top:0px;">
+          <div class="flow-box decision">has tool_calls? → No</div>
+          <div class="flow-arrow">↓</div>
+          <div class="flow-box end">END</div>
+        </div>
+      </div>
+    </div>
+
+    <h3>Smart Location Forcing</h3>
+    <p>
+      Inside <code>call_model()</code>, before invoking the LLM, the agent checks whether the
+      latest human message is a location query using <code>_is_location_query()</code>.
+      This function scans for Japanese keywords like <code>場所</code>, <code>飲める</code>,
+      <code>買える</code> and English keywords like <code>where to buy</code>, <code>shop</code>,
+      <code>find</code>. If it matches <em>and</em> no tool calls have been made yet, the LLM is
+      invoked with <code>tool_choice</code> forced to <code>search_sake_places</code>, guaranteeing
+      that a map is always produced for place queries rather than having the model answer from memory.
+    </p>
+
+    <h3>MAP_DATA Protocol</h3>
+    <p>
+      <code>search_sake_places</code> appends a special sentinel block to its return string:
+    </p>
+    <pre><code>==================================================
+MAP_DATA_START
+{"search_location": "Tokyo", "center_lat": 35.68, "center_lng": 139.69, "locations": [...]}
+MAP_DATA_END
+==================================================</code></pre>
+    <p>
+      <code>app.py</code> uses a regex with <code>re.DOTALL</code> to extract and JSON-parse this
+      block. The surrounding text is stripped from the chat display, and the JSON is passed to
+      <code>display_map()</code> which renders an embedded Google Maps JavaScript API component.
+    </p>
+
+    <h3>Bilingual Language Detection</h3>
+    <p>
+      Both <code>agents/sake_agent.py</code> and <code>agents/tools.py</code> contain a local
+      <code>_is_japanese(text)</code> helper that checks for any Unicode character in the Hiragana,
+      Katakana, or CJK Unified Ideograph ranges. Tools build different search queries depending on
+      detected language (e.g., Japanese queries get <code>日本酒 ランキング おすすめ</code> prefix).
+    </p>
+  </section>
+
+  <!-- ── 7. Streamlit UI ── -->
+  <section id="ui">
+    <h2><span class="ico">🖥️</span> Streamlit UI &amp; Session State</h2>
+
+    <h3>Session State Keys</h3>
+    <table>
+      <thead>
+        <tr><th>Key</th><th>Type</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>st.session_state.agent</code></td>
+          <td>Compiled LangGraph app</td>
+          <td>The compiled LangGraph workflow, created once per session.</td>
+        </tr>
+        <tr>
+          <td><code>st.session_state.messages</code></td>
+          <td><code>list[dict]</code></td>
+          <td>Display messages for the chat UI (<code>{"role": …, "content": …}</code>).</td>
+        </tr>
+        <tr>
+          <td><code>st.session_state.chat_history</code></td>
+          <td><code>list[BaseMessage]</code></td>
+          <td>Full LangChain message history passed to the agent for multi-turn context.</td>
+        </tr>
+        <tr>
+          <td><code>st.session_state.language</code></td>
+          <td><code>"en" | "ja"</code></td>
+          <td>Current UI language, toggled via sidebar radio.</td>
+        </tr>
+        <tr>
+          <td><code>st.session_state.google_maps_configured</code></td>
+          <td><code>bool</code></td>
+          <td>Whether a Google Maps API key was found; used to show/hide map warnings.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Page Layout</h3>
+    <p>
+      The app uses Streamlit's <code>layout="centered"</code> with a permanent expanded sidebar.
+      Main content is split into two tabs:
+    </p>
+    <ul style="padding-left:20px; margin-bottom:12px;">
+      <li style="margin:6px 0;"><strong>💬 AI Sake Guide / AIガイド</strong> — The primary chat interface with welcome message, example prompt buttons, full chat history, and chat input.</li>
+      <li style="margin:6px 0;"><strong>🕸️ Sake Network Graph / 日本酒ネットワーク</strong> — The agraph visualisation with a top-N slider and flavor legend.</li>
+    </ul>
+
+    <h3>Custom CSS Theme</h3>
+    <p>
+      Streamlit theme is configured in <code>.streamlit/config.toml</code> with the signature sake-red
+      primary color <code class="highlight">#c41e3a</code>. Additional inline CSS styles the header,
+      chat messages, and example prompt buttons with hover states using
+      <code>rgba(196, 30, 58, 0.1 / 0.2)</code>.
+    </p>
+  </section>
+
+  <!-- ── 8. Network Graph ── -->
+  <section id="network">
+    <h2><span class="ico">🕸️</span> Sake Network Graph</h2>
+    <p>
+      <code>utils/sake_network.py</code> builds and renders an interactive network using
+      <code>streamlit-agraph</code>. Data is loaded from a pre-built JSON file
+      (<code>sake_ranking_fallback.json</code>) that is refreshed daily at 05:00 JST by a
+      GitHub Actions workflow running <code>scripts/update_sake_rankings.py</code>.
+    </p>
+
+    <h3>Node Types</h3>
+    <table>
+      <thead>
+        <tr><th>Shape</th><th>Represents</th><th>Color scheme</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>⬤ Dot</td>
+          <td>Sake brand</td>
+          <td>Colored by flavor type; size proportional to rank position</td>
+        </tr>
+        <tr>
+          <td>🟦 Box</td>
+          <td>Prefecture</td>
+          <td>Colored by geographic region (Tohoku, Kanto, Kinki, etc.)</td>
+        </tr>
+        <tr>
+          <td>◉ Ellipse</td>
+          <td>Flavor type</td>
+          <td>Fixed large node, always rendered; labeled with emoji</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>Flavor Types &amp; Colors</h3>
+    <div class="tag-list">
+      <span class="tag" style="background:#E85D9E; color:#fff;">🍎 Fruity / フルーティ</span>
+      <span class="tag" style="background:#4AABDB; color:#fff;">💧 Light / 軽快</span>
+      <span class="tag" style="background:#F4B942; color:#333;">🍯 Sweet / 甘い</span>
+      <span class="tag" style="background:#5DBD7A; color:#fff;">🌾 Dry / 辛口</span>
+      <span class="tag" style="background:#A0522D; color:#fff;">🍺 Full Body / どっしり</span>
+      <span class="tag" style="background:#8B6914; color:#fff;">🪨 Aged / 熟成</span>
+      <span class="tag" style="background:#6EB5FF; color:#fff;">✨ Sparkling / スパークリング</span>
+    </div>
+
+    <h3>Edge Semantics</h3>
+    <p>
+      Each sake brand node has two edges: one to its home prefecture node and one to its flavor type node.
+      Edge color mirrors the target node's color, making the graph readable at a glance.
+      The physics simulation (<code>physics=True</code>) causes related nodes to cluster naturally.
+    </p>
+  </section>
+
+  <!-- ── 9. Config ── -->
+  <section id="config">
+    <h2><span class="ico">🔑</span> Configuration &amp; Secrets</h2>
+
+    <div class="key-table">
+      <div class="key-row">
+        <span class="key-badge required">Required</span>
+        <span class="key-name">OPENAI_API_KEY</span>
+        <span class="key-desc">OpenAI API key for GPT-4o. Obtain from platform.openai.com/api-keys.</span>
+      </div>
+      <div class="key-row">
+        <span class="key-badge required">Required</span>
+        <span class="key-name">TAVILY_API_KEY</span>
+        <span class="key-desc">Tavily search API key for web search, ranking queries, and social media search. Obtain from tavily.com.</span>
+      </div>
+      <div class="key-row">
+        <span class="key-badge optional">Optional</span>
+        <span class="key-name">GOOGLE_MAPS_API_KEY</span>
+        <span class="key-desc">Required for interactive maps with photos and reviews. Must have Places API, Geocoding API, and Maps JavaScript API enabled.</span>
+      </div>
+      <div class="key-row">
+        <span class="key-badge optional">Optional</span>
+        <span class="key-name">INSTAGRAM_ACCESS_TOKEN</span>
+        <span class="key-desc">Kept for backward compatibility. Currently not actively used — Instagram search is handled via Tavily.</span>
+      </div>
+    </div>
+
+    <h3>Streamlit Server Config (<code>.streamlit/config.toml</code>)</h3>
+    <pre><code>[theme]
+primaryColor = "#c41e3a"       # Sake red
+backgroundColor = "#ffffff"
+textColor = "#1a1a1a"
+
+[server]
+headless = true
+enableCORS = false
+enableXsrfProtection = true
+
+[browser]
+gatherUsageStats = false</code></pre>
+
+    <h3>Model Settings</h3>
+    <p>
+      Defined in <code>config/settings.py</code> as defaults on the <code>Settings</code> dataclass:
+    </p>
+    <pre><code>openai_model  = "gpt-4o"
+temperature   = 0.7
+max_search_results = 5</code></pre>
+  </section>
+
+  <!-- ── 10. Setup ── -->
+  <section id="setup">
+    <h2><span class="ico">🚀</span> Local Setup</h2>
+    <pre><code># 1. Clone and enter the repository
+git clone &lt;repo-url&gt;
+cd japan_sake_guide_app
+
+# 2. Create and activate a virtual environment
+python -m venv venv
+source venv/bin/activate        # Windows: venv\Scripts\activate
+
+# 3. Install dependencies
+pip install -r requirements.txt
+
+# 4. Configure secrets
+cp secrets.toml.example .streamlit/secrets.toml
+# Edit .streamlit/secrets.toml and add your API keys
+
+# 5. Run the app
+streamlit run app.py</code></pre>
+
+    <h3>Python Dependencies</h3>
+    <div class="tag-list">
+      <span class="tag">streamlit&nbsp;&ge;&nbsp;1.28</span>
+      <span class="tag">langgraph&nbsp;&ge;&nbsp;0.2</span>
+      <span class="tag">langchain&nbsp;&ge;&nbsp;0.3</span>
+      <span class="tag">langchain-openai&nbsp;&ge;&nbsp;0.2</span>
+      <span class="tag">langchain-community&nbsp;&ge;&nbsp;0.3</span>
+      <span class="tag">openai&nbsp;&ge;&nbsp;1.0</span>
+      <span class="tag">tavily-python&nbsp;&ge;&nbsp;0.3</span>
+      <span class="tag">googlemaps&nbsp;&ge;&nbsp;4.10</span>
+      <span class="tag">streamlit-agraph&nbsp;&ge;&nbsp;0.0.45</span>
+      <span class="tag">pydantic&nbsp;&ge;&nbsp;2.0</span>
+      <span class="tag">requests&nbsp;&ge;&nbsp;2.31</span>
+      <span class="tag">httpx&nbsp;&ge;&nbsp;0.25</span>
+      <span class="tag">python-dotenv&nbsp;&ge;&nbsp;1.0</span>
+    </div>
+  </section>
+
+  <!-- ── 11. Patterns ── -->
+  <section id="patterns">
+    <h2><span class="ico">📐</span> Key Patterns &amp; Conventions</h2>
+
+    <h3>Tool Error Handling</h3>
+    <p>
+      All tools catch exceptions and return error strings rather than re-raising. This prevents
+      the LangGraph tool node from crashing the agent and lets the LLM surface the error message
+      to the user gracefully.
+    </p>
+    <pre><code>try:
+    results = tavily_client.search(...)
+    return formatted_results
+except Exception as e:
+    return f"Error searching sake rankings: {str(e)}"</code></pre>
+
+    <h3>Content Truncation</h3>
+    <p>
+      Search result content strings are truncated to 300–600 characters (depending on tool) before
+      being assembled into the tool return value. This keeps token usage bounded and avoids context
+      overflow in long sessions.
+    </p>
+
+    <h3>Hashtag Sanitization</h3>
+    <p>
+      <code>_sanitize_hashtag(text)</code> strips the leading <code>#</code> and removes all
+      characters except alphanumerics and Japanese scripts, then lowercases the result. This produces
+      valid hashtag search terms regardless of whether the user included the <code>#</code> or used
+      mixed-script input.
+    </p>
+
+    <h3>Adding a New Tool</h3>
+    <p>Follow these four steps:</p>
+    <ol style="padding-left:20px; line-height:2;">
+      <li>Add a <code>@tool</code>-decorated function <em>inside</em> <code>create_sake_tools()</code> in <code>agents/tools.py</code>.</li>
+      <li>Append it to the <code>return</code> list at the bottom of the factory function.</li>
+      <li>Update the system prompt in <code>sake_agent.py</code> (the <code>Available Tools:</code> section) to document the new tool.</li>
+      <li>Optionally add example prompts to <code>SIDEBAR_EXAMPLE_PROMPTS</code> in <code>utils/helpers.py</code>.</li>
+    </ol>
+
+    <div class="callout info">
+      <strong>Testing Checklist</strong>
+      Test with both English and Japanese queries. Verify ranking searches, specific sake lookups
+      (e.g., "Dassai", "獺祭"), hashtag searches (#日本酒, #sake), Twitter search,
+      Instagram search, <code>search_sake_places</code> with and without <code>sake_name</code>,
+      map display with photos and reviews, and online shop search.
+    </div>
+  </section>
+
+  <footer>
+    <p>Generated from <strong>riko-py-mk/japan_sake_guide_app</strong> source code &mdash; 2026-05-12</p>
+  </footer>
+
+</div><!-- /page-wrap -->
+</body>
+</html>
