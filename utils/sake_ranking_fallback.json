@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-08-01",
+  "as_of": "2026-08-02",
   "entries": [
     {
       "rank": 1,
@@ -10,31 +10,31 @@
     },
     {
       "rank": 2,
+      "brand_id": 144,
+      "name": "十四代",
+      "prefecture": "山形県",
+      "flavor_type": "Light"
+    },
+    {
+      "rank": 3,
       "brand_id": 660,
       "name": "而今",
       "prefecture": "三重県",
       "flavor_type": "Light"
     },
     {
-      "rank": 3,
+      "rank": 4,
       "brand_id": 792,
       "name": "風の森",
       "prefecture": "奈良県",
       "flavor_type": "Aged"
     },
     {
-      "rank": 4,
+      "rank": 5,
       "brand_id": 1121,
       "name": "仙禽",
       "prefecture": "栃木県",
       "flavor_type": "Aged"
-    },
-    {
-      "rank": 5,
-      "brand_id": 144,
-      "name": "十四代",
-      "prefecture": "山形県",
-      "flavor_type": "Light"
     },
     {
       "rank": 6,
@@ -87,10 +87,10 @@
     },
     {
       "rank": 13,
-      "brand_id": 1179,
-      "name": "花陽浴",
-      "prefecture": "埼玉県",
-      "flavor_type": "Fruity"
+      "brand_id": 887,
+      "name": "獺祭",
+      "prefecture": "山口県",
+      "flavor_type": "Light"
     },
     {
       "rank": 14,
@@ -101,24 +101,24 @@
     },
     {
       "rank": 15,
-      "brand_id": 887,
-      "name": "獺祭",
-      "prefecture": "山口県",
-      "flavor_type": "Light"
-    },
-    {
-      "rank": 16,
-      "brand_id": 3722,
-      "name": "信州亀齢",
-      "prefecture": "長野県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 17,
       "brand_id": 626,
       "name": "醸し人九平次",
       "prefecture": "愛知県",
       "flavor_type": "Light"
+    },
+    {
+      "rank": 16,
+      "brand_id": 1179,
+      "name": "花陽浴",
+      "prefecture": "埼玉県",
+      "flavor_type": "Fruity"
+    },
+    {
+      "rank": 17,
+      "brand_id": 3722,
+      "name": "信州亀齢",
+      "prefecture": "長野県",
+      "flavor_type": "Aged"
     },
     {
       "rank": 18,
@@ -129,16 +129,16 @@
     },
     {
       "rank": 19,
-      "brand_id": 202,
-      "name": "飛露喜",
-      "prefecture": "福島県",
+      "brand_id": 884,
+      "name": "東洋美人",
+      "prefecture": "山口県",
       "flavor_type": "Light"
     },
     {
       "rank": 20,
-      "brand_id": 884,
-      "name": "東洋美人",
-      "prefecture": "山口県",
+      "brand_id": 202,
+      "name": "飛露喜",
+      "prefecture": "福島県",
       "flavor_type": "Light"
     },
     {
@@ -150,87 +150,87 @@
     },
     {
       "rank": 22,
-      "brand_id": 19567,
-      "name": "光栄菊",
-      "prefecture": "佐賀県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 23,
-      "brand_id": 1217,
-      "name": "栄光冨士",
-      "prefecture": "山形県",
-      "flavor_type": "Light"
-    },
-    {
-      "rank": 24,
-      "brand_id": 3534,
-      "name": "加茂錦",
-      "prefecture": "新潟県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 25,
       "brand_id": 73,
       "name": "雪の茅舎",
       "prefecture": "秋田県",
       "flavor_type": "Light"
     },
     {
-      "rank": 26,
-      "brand_id": 45799,
-      "name": "産土",
-      "prefecture": "熊本県",
+      "rank": 23,
+      "brand_id": 19567,
+      "name": "光栄菊",
+      "prefecture": "佐賀県",
       "flavor_type": "Aged"
     },
     {
-      "rank": 27,
-      "brand_id": 10872,
-      "name": "楽器正宗",
-      "prefecture": "福島県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 28,
-      "brand_id": 12,
-      "name": "陸奥八仙",
-      "prefecture": "青森県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 29,
+      "rank": 24,
       "brand_id": 156,
       "name": "くどき上手",
       "prefecture": "山形県",
       "flavor_type": "Light"
     },
     {
-      "rank": 30,
-      "brand_id": 1481,
-      "name": "花邑",
-      "prefecture": "秋田県",
+      "rank": 25,
+      "brand_id": 45799,
+      "name": "産土",
+      "prefecture": "熊本県",
+      "flavor_type": "Aged"
+    },
+    {
+      "rank": 26,
+      "brand_id": 3534,
+      "name": "加茂錦",
+      "prefecture": "新潟県",
+      "flavor_type": "Aged"
+    },
+    {
+      "rank": 27,
+      "brand_id": 1217,
+      "name": "栄光冨士",
+      "prefecture": "山形県",
       "flavor_type": "Light"
     },
     {
-      "rank": 31,
+      "rank": 28,
+      "brand_id": 10872,
+      "name": "楽器正宗",
+      "prefecture": "福島県",
+      "flavor_type": "Aged"
+    },
+    {
+      "rank": 29,
+      "brand_id": 12,
+      "name": "陸奥八仙",
+      "prefecture": "青森県",
+      "flavor_type": "Aged"
+    },
+    {
+      "rank": 30,
       "brand_id": 454,
       "name": "羽根屋",
       "prefecture": "富山県",
       "flavor_type": "Light"
     },
     {
-      "rank": 32,
-      "brand_id": 932,
-      "name": "亀泉",
-      "prefecture": "高知県",
-      "flavor_type": "Fruity"
+      "rank": 31,
+      "brand_id": 1481,
+      "name": "花邑",
+      "prefecture": "秋田県",
+      "flavor_type": "Light"
     },
     {
-      "rank": 33,
+      "rank": 32,
       "brand_id": 1754,
       "name": "たかちよ",
       "prefecture": "新潟県",
       "flavor_type": "Light"
+    },
+    {
+      "rank": 33,
+      "brand_id": 932,
+      "name": "亀泉",
+      "prefecture": "高知県",
+      "flavor_type": "Fruity"
     },
     {
       "rank": 34,
@@ -248,79 +248,79 @@
     },
     {
       "rank": 36,
-      "brand_id": 871,
-      "name": "雨後の月",
-      "prefecture": "広島県",
-      "flavor_type": "Light"
-    },
-    {
-      "rank": 37,
-      "brand_id": 380,
-      "name": "八海山",
-      "prefecture": "新潟県",
-      "flavor_type": "Dry"
-    },
-    {
-      "rank": 38,
       "brand_id": 1100,
       "name": "山本",
       "prefecture": "秋田県",
       "flavor_type": "Aged"
     },
     {
-      "rank": 39,
-      "brand_id": 4195,
-      "name": "二兎",
-      "prefecture": "愛知県",
+      "rank": 37,
+      "brand_id": 871,
+      "name": "雨後の月",
+      "prefecture": "広島県",
       "flavor_type": "Light"
     },
     {
-      "rank": 40,
+      "rank": 38,
       "brand_id": 607,
       "name": "磯自慢",
       "prefecture": "静岡県",
       "flavor_type": "Light"
     },
     {
-      "rank": 41,
+      "rank": 39,
       "brand_id": 3235,
       "name": "あべ",
       "prefecture": "新潟県",
       "flavor_type": "Aged"
     },
     {
-      "rank": 42,
-      "brand_id": 470,
-      "name": "手取川",
-      "prefecture": "石川県",
-      "flavor_type": "Aged"
-    },
-    {
-      "rank": 43,
+      "rank": 40,
       "brand_id": 30227,
       "name": "天美",
       "prefecture": "山口県",
       "flavor_type": "Aged"
     },
     {
-      "rank": 44,
-      "brand_id": 431,
-      "name": "久保田",
-      "prefecture": "新潟県",
+      "rank": 41,
+      "brand_id": 135,
+      "name": "出羽桜",
+      "prefecture": "山形県",
       "flavor_type": "Light"
+    },
+    {
+      "rank": 42,
+      "brand_id": 1136,
+      "name": "甲子",
+      "prefecture": "千葉県",
+      "flavor_type": "Aged"
+    },
+    {
+      "rank": 43,
+      "brand_id": 4195,
+      "name": "二兎",
+      "prefecture": "愛知県",
+      "flavor_type": "Light"
+    },
+    {
+      "rank": 44,
+      "brand_id": 881,
+      "name": "雁木",
+      "prefecture": "山口県",
+      "flavor_type": "Aged"
     },
     {
       "rank": 45,
-      "brand_id": 287,
-      "name": "尾瀬の雪どけ",
-      "prefecture": "群馬県",
-      "flavor_type": "Light"
+      "brand_id": 380,
+      "name": "八海山",
+      "prefecture": "新潟県",
+      "flavor_type": "Dry"
     },
     {
       "rank": 46,
-      "brand_id": 1070,
-      "name": "豊盃",
-      "prefecture": "青森県",
+      "brand_id": 1026,
+      "name": "ロ万",
+      "prefecture": "福島県",
       "flavor_type": "Light"
     },
     {
@@ -332,24 +332,24 @@
     },
     {
       "rank": 48,
-      "brand_id": 135,
-      "name": "出羽桜",
-      "prefecture": "山形県",
+      "brand_id": 287,
+      "name": "尾瀬の雪どけ",
+      "prefecture": "群馬県",
       "flavor_type": "Light"
     },
     {
       "rank": 49,
-      "brand_id": 1136,
-      "name": "甲子",
-      "prefecture": "千葉県",
-      "flavor_type": "Aged"
+      "brand_id": 1070,
+      "name": "豊盃",
+      "prefecture": "青森県",
+      "flavor_type": "Light"
     },
     {
       "rank": 50,
-      "brand_id": 881,
-      "name": "雁木",
-      "prefecture": "山口県",
-      "flavor_type": "Aged"
+      "brand_id": 1469,
+      "name": "廣戸川",
+      "prefecture": "福島県",
+      "flavor_type": "Light"
     }
   ]
 }
