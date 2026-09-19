@@ -50,15 +50,19 @@ def create_sake_tools(tavily_api_key: str, instagram_access_token: Optional[str]
 ```
 
 **Available Tools:**
-1. `search_sake_rankings` - Searches sakenowa.com and saketime.jp
-2. `search_sake_info` - Detailed info about specific sake
-3. `search_social_media_hashtag` - Search Twitter/X, Instagram, and Facebook by hashtag via Tavily
-4. `search_twitter_sake` - Twitter/X search for sake discussions and trends via Tavily
-5. `search_instagram_sake` - Instagram posts about a specific sake brand via Tavily
-6. `search_sake_places` - **Unified location search tool** using Google Places API with interactive map:
+1. `get_sake_rankings` - **Preferred for ranking/recommendation queries.** Reads the local
+   `utils/sake_ranking_fallback.json` snapshot (sakenowa top-50, refreshed daily by CI).
+   Optional `flavor` / `prefecture` / `top_n` filters; no network call.
+2. `search_sake_rankings` - Web-search fallback over sakenowa.com and saketime.jp, for
+   queries the local snapshot cannot answer (specific grades, editorial lists, outside top 50)
+3. `search_sake_info` - Detailed info about specific sake
+4. `search_social_media_hashtag` - Search Twitter/X, Instagram, and Facebook by hashtag via Tavily
+5. `search_twitter_sake` - Twitter/X search for sake discussions and trends via Tavily
+6. `search_instagram_sake` - Instagram posts about a specific sake brand via Tavily
+7. `search_sake_places` - **Unified location search tool** using Google Places API with interactive map:
    - WITH sake_name: Find restaurants/bars serving a specific sake brand (e.g., "写楽", "獺祭")
    - WITHOUT sake_name: Find general sake shops, restaurants, or izakayas in a location
-7. `search_sake_online_shops` - Search for sake available on online sake shops
+8. `search_sake_online_shops` - Search for sake available on online sake shops
 
 ### Agent Workflow (agents/sake_agent.py)
 
@@ -75,9 +79,26 @@ Key components:
 - `create_sake_agent()`: Builds and compiles the LangGraph workflow
 - `run_sake_agent()`: Executes agent with user message
 
+### Ranking Data Pipeline
+
+`scripts/update_sake_rankings.py` runs daily (05:00 JST, GitHub Actions) against the
+sakenowa API and commits `utils/sake_ranking_fallback.json`. The app never calls that
+API at request time — both the network graph and the `get_sake_rankings` tool read the
+committed snapshot.
+
+**Flavour axes:** sakenowa's flavour chart is a six-axis radar —
+`f1 華やか / f2 芳醇 / f3 重厚 / f4 穏やか / f5 ドライ / f6 軽快`. The mapping lives in
+`FLAVOR_AXES` in `utils/sake_rankings.py` and is imported by both the CI script and the
+app; do not redefine it elsewhere. An earlier duplicate definition had the axes shifted,
+which mislabelled ~40% of the top 50 as "Aged".
+
+**Prefectures:** the API returns names *with* their suffix (`秋田県`, `京都府`, `東京都`),
+so always resolve regions via `prefecture_region()` / `region_color()`, which strip the
+suffix before lookup.
+
 ### Data Sources
 
-Sake rankings are fetched from:
+Sake rankings are also web-searched from:
 - https://sakenowa.com/en/ranking
 - https://sakenowa.com/en/ranking?page=2#ranking
 - https://www.saketime.jp/ranking/
@@ -89,6 +110,14 @@ Sake rankings are fetched from:
 - Always consider both Japanese and English in all features
 - Use `_is_japanese(text)` helper to detect language
 - Agent responds in the same language the user writes
+
+### Tool Routing
+
+Tool selection is done entirely by the LLM, guided by `SAKE_GUIDE_SYSTEM_PROMPT`.
+Do **not** reintroduce keyword-based forcing via `tool_choice`: a previous version
+force-bound `search_sake_places` whenever a query contained "find"/"探して"/"検索",
+which made the social-media, online-shop and ranking tools unreachable for many
+ordinary questions. Fix routing problems in the system prompt instead.
 
 ### Adding New Tools
 

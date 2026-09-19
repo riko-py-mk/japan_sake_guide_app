@@ -2,6 +2,7 @@
 Tools for the Japanese Sake Guide Agent.
 
 This module provides tools for searching sake information from:
+- The local sakenowa ranking snapshot (utils/sake_ranking_fallback.json, refreshed daily)
 - Sake ranking websites (sakenowa.com, saketime.jp)
 - General web search via Tavily
 - Social media content via Tavily web search
@@ -13,6 +14,15 @@ from langchain_core.tools import tool
 from tavily import TavilyClient
 import googlemaps
 from googlemaps.exceptions import ApiError
+
+from utils.sake_rankings import (
+    FLAVOR_TYPES,
+    filter_entries,
+    load_ranking_data,
+    load_ranking_entries,
+    normalize_flavor,
+    normalize_prefecture,
+)
 
 
 def _is_japanese(text: str) -> bool:
@@ -75,6 +85,101 @@ def create_sake_tools(
     """
     tavily_client = TavilyClient(api_key=tavily_api_key)
     gmaps_client = googlemaps.Client(key=google_maps_api_key) if google_maps_api_key else None
+
+    @tool
+    def get_sake_rankings(flavor: str = "", prefecture: str = "", top_n: int = 10) -> str:
+        """
+        Get the current sakenowa.com top-50 sake ranking from local structured data.
+
+        This is the PREFERRED tool for ranking, popularity and recommendation queries:
+        it is instant, needs no web search, and returns exact rank, prefecture and
+        flavour profile for each brand. Only fall back to search_sake_rankings when
+        the user needs something this data does not cover (e.g. a specific grade such
+        as daiginjo, or editorial "best of" articles).
+
+        Args:
+            flavor: Optional flavour filter. One of Fruity (華やか), Mellow (芳醇),
+                    Full Body (重厚), Mild (穏やか), Dry (ドライ), Light (軽快),
+                    Sparkling. Japanese and romaji spellings are accepted.
+            prefecture: Optional prefecture filter, in kanji or romaji
+                        (e.g. "山形", "Yamagata", "山形県").
+            top_n: Maximum number of entries to return (default 10, max 50).
+
+        Returns:
+            Ranked list of sake with rank, name, prefecture and flavour profile.
+        """
+        try:
+            data = load_ranking_data()
+            entries = load_ranking_entries()
+        except (OSError, ValueError) as e:
+            return f"Error loading local ranking data: {str(e)}"
+
+        if not entries:
+            return "Local ranking data is empty. Use search_sake_rankings instead."
+
+        # Resolve the filters, telling the model exactly what went wrong so it can retry.
+        canonical_flavor = None
+        if flavor:
+            canonical_flavor = normalize_flavor(flavor)
+            if not canonical_flavor:
+                return (
+                    f"Unknown flavour '{flavor}'. Valid values: "
+                    + ", ".join(n for n in FLAVOR_TYPES if n != "Unknown")
+                )
+
+        canonical_prefecture = None
+        if prefecture:
+            canonical_prefecture = normalize_prefecture(prefecture)
+            if not canonical_prefecture:
+                return (
+                    f"Unknown prefecture '{prefecture}'. Use a Japanese prefecture "
+                    "name in kanji or romaji (e.g. 山形 / Yamagata)."
+                )
+
+        top_n = max(1, min(int(top_n or 10), 50))
+        matches = filter_entries(
+            entries,
+            flavor=canonical_flavor,
+            prefecture=canonical_prefecture,
+            top_n=top_n,
+        )
+
+        if not matches:
+            criteria = " and ".join(
+                part for part in [
+                    f"flavour '{canonical_flavor}'" if canonical_flavor else "",
+                    f"prefecture '{canonical_prefecture}'" if canonical_prefecture else "",
+                ] if part
+            )
+            return (
+                f"No sake in the current top {len(entries)} match {criteria}. "
+                "Try a different filter, or use search_sake_rankings for a wider search."
+            )
+
+        as_of = data.get("as_of") or "unknown date"
+        header = f"Sakenowa overall ranking (top {len(entries)}, as of {as_of})"
+        if canonical_flavor or canonical_prefecture:
+            filters = ", ".join(
+                part for part in [
+                    f"flavour={canonical_flavor}" if canonical_flavor else "",
+                    f"prefecture={canonical_prefecture}" if canonical_prefecture else "",
+                ] if part
+            )
+            header += f" — filtered by {filters}"
+
+        output = [header, "-" * 50]
+        for entry in matches:
+            info = FLAVOR_TYPES.get(entry["flavor_type"], FLAVOR_TYPES["Unknown"])
+            output.append(
+                f"#{entry['rank']}. {entry['name']} — {entry['prefecture']} — "
+                f"{entry['flavor_type']} ({info['ja']}: {info['desc']})"
+            )
+        output.append(
+            "\nFlavour profiles come from sakenowa's six-axis flavour chart "
+            "(dominant axis per brand). Use search_sake_info for tasting notes, "
+            "breweries and food pairings for any brand above."
+        )
+        return "\n".join(output)
 
     @tool
     def search_sake_rankings(query: str) -> str:
@@ -772,6 +877,7 @@ def create_sake_tools(
 
     # Return all tools
     return [
+        get_sake_rankings,
         search_sake_rankings,
         search_sake_info,
         search_social_media_hashtag,
