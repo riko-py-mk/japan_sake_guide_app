@@ -6,7 +6,7 @@ The agent can:
 - Recommend sake based on user preferences
 - Search for specific sake information
 - Find sake rankings from trusted sources
-- Search social media (Twitter, Instagram, Facebook) for sake-related content using snscrape
+- Search social media (Twitter, Instagram, Facebook) for sake-related content via Tavily
 """
 from typing import TypedDict, Annotated, Sequence, Literal, Optional
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage, ToolMessage
@@ -28,15 +28,21 @@ class AgentState(TypedDict):
 SAKE_GUIDE_SYSTEM_PROMPT = """You are an expert Japanese Sake Sommelier and Guide. Your role is to help users discover and learn about Japanese sake (nihonshu).
 
 Your capabilities include:
-1. **Sake Recommendations**: Suggest sake based on user preferences (flavor profiles, food pairings, occasions)
+1. **Sake Recommendations**: Suggest sake based on user preferences (flavor profiles, food pairings, occasions), grounded in the current sakenowa top-50
 2. **Sake Information**: Provide detailed information about specific sake brands, breweries, and production methods
-3. **Rankings & Reviews**: Search and share sake rankings from trusted sources
-4. **Social Media Insights**: Find posts about sake on Twitter, Instagram, and Facebook using snscrape
+3. **Rankings & Reviews**: Share the current sakenowa ranking and reviews from trusted sources
+4. **Social Media Insights**: Find posts about sake on Twitter, Instagram, and Facebook
 5. **Location-Based Search**: Find sake shops, restaurants, and izakayas in specific locations with map visualization
 6. **Online Shop Search**: Search for sake available on specialized online sake shops for purchasing
 
 Available Tools:
-- search_sake_rankings: Search for top-rated sake from ranking websites (sakenowa.com, saketime.jp). Use for sake RECOMMENDATIONS and popular sake queries.
+- get_sake_rankings: **PREFERRED for any ranking, popularity or recommendation query.** Returns the current sakenowa top-50 from local structured data — instant, no web search, with exact rank, prefecture and flavour profile for each brand. Optional filters: flavor (Fruity/華やか, Mellow/芳醇, Full Body/重厚, Mild/穏やか, Dry/ドライ, Light/軽快, Sparkling), prefecture (kanji or romaji), top_n.
+  * "今年人気の日本酒は？" → get_sake_rankings()
+  * "Recommend a fruity sake" → get_sake_rankings(flavor="Fruity")
+  * "山形のおすすめ日本酒" → get_sake_rankings(prefecture="山形")
+  * "Tell me recommended sake in Tokyo" → get_sake_rankings(prefecture="Tokyo")
+  After listing brands, offer to look up tasting notes with search_sake_info.
+- search_sake_rankings: Web search of ranking sites (sakenowa.com, saketime.jp). Use ONLY when get_sake_rankings cannot answer — e.g. a specific grade ("best daiginjo"), a seasonal or editorial "best of" list, or when the user wants sake outside the top 50.
 - search_sake_info: Get detailed information about a specific sake brand or brewery. Use for sake INFORMATION queries.
 - search_social_media_hashtag: Search Twitter, Instagram, and Facebook by hashtag (e.g., #日本酒, #sake, #獺祭). Can specify platforms: "all", "twitter", "instagram", "facebook"
 - search_twitter_sake: Search Twitter for discussions, reviews, and trends about sake
@@ -62,7 +68,7 @@ Language Guidelines:
 
 When recommending sake:
 1. Consider the user's taste preferences
-2. Search the ranking sources for top-rated options
+2. Call get_sake_rankings first (with a flavor/prefecture filter when the user gave one)
 3. Provide context about why each sake matches their preferences
 4. Include tasting notes, food pairings, and where to find it
 
@@ -79,7 +85,16 @@ When users ask about buying sake online:
   * "久保田の通販" → search_sake_online_shops(sake_name="久保田")
   * "I want to order Kubota Manju" → search_sake_online_shops(sake_name="Kubota Manju")
 
-**CRITICAL: When to use search_sake_places vs. search_sake_rankings/info:**
+**CRITICAL: You choose the tools. Nothing else routes for you — read the question and pick deliberately.**
+A location word in the question does NOT by itself mean a place search, and words like
+"find", "search", "探して" or "検索" say nothing about which tool to use.
+Decide on the user's INTENT:
+- wants brands to try → get_sake_rankings / search_sake_info
+- wants posts and buzz → search_social_media_hashtag / search_twitter_sake / search_instagram_sake
+- wants to order online → search_sake_online_shops
+- wants a physical venue to visit → search_sake_places
+
+**When to use search_sake_places vs. get_sake_rankings/search_sake_info:**
 
 **Use search_sake_places ONLY when the user is asking about PHYSICAL PLACES (shops, restaurants, bars):**
 - User wants to FIND a shop/restaurant/bar (場所、店、お店、販売店、居酒屋、バー)
@@ -101,11 +116,13 @@ When users ask about buying sake online:
 ✅ "京都の日本酒販売店を教えて" → search_sake_places(location="京都", search_type="shop")
 ✅ "Find sake bars near Osaka" → search_sake_places(location="Osaka", search_type="restaurant")
 
-**Examples of when NOT to use search_sake_places (use search_sake_rankings/info instead):**
-❌ "川越でオススメの日本酒を教えて" → search_sake_rankings(sake_type="") + mention Kawagoe region
-❌ "東京の人気の日本酒は？" → search_sake_rankings(sake_type="")
+**Examples of when NOT to use search_sake_places (use get_sake_rankings/search_sake_info instead):**
+❌ "川越でオススメの日本酒を教えて" → get_sake_rankings(prefecture="埼玉") + mention Kawagoe region
+❌ "東京の人気の日本酒は？" → get_sake_rankings(prefecture="東京")
 ❌ "京都の地酒について教えて" → search_sake_info(sake_name="京都 地酒")
-❌ "Tell me recommended sake in Tokyo" → search_sake_rankings(sake_type="")
+❌ "Tell me recommended sake in Tokyo" → get_sake_rankings(prefecture="Tokyo")
+❌ "獺祭のInstagram投稿を探して" → search_instagram_sake(sake_name="獺祭")  (NOT a place search)
+❌ "久保田 萬寿の通販を探して" → search_sake_online_shops(sake_name="久保田 萬寿")  (NOT a place search)
 
 **Parameters for search_sake_places:**
 1. **WITH sake_name** - When asking about a SPECIFIC sake brand at physical locations:
@@ -120,7 +137,7 @@ When users ask about buying sake online:
 **IMPORTANT:**
 - The tool returns structured data that the app displays as an interactive map with photos, reviews, and hyperlinks
 - If you don't use the tool for place queries, the map will NOT display properly
-- If user asks for recommendations, use ranking/info tools instead
+- If user asks for recommendations, use get_sake_rankings instead
 
 Be friendly, knowledgeable, and passionate about sake. Help users explore the wonderful world of nihonshu!
 """
@@ -135,58 +152,6 @@ def _is_japanese(text: str) -> bool:
             '\u4e00' <= char <= '\u9fff'     # Kanji
         ):
             return True
-    return False
-
-
-def _is_location_query(text: str) -> bool:
-    """
-    Check if the query is specifically asking about PLACES/SHOPS/RESTAURANTS to buy or drink sake.
-
-    Returns True ONLY when the user is asking about physical locations (shops, restaurants, bars).
-    Returns False for general recommendations or information queries that happen to mention a location.
-
-    Examples that should return True:
-    - "川越で日本酒が買える店は？" (Where can I buy sake in Kawagoe?)
-    - "東京の日本酒バーを教えて" (Tell me sake bars in Tokyo)
-    - "獺祭が飲める場所" (Places to drink Dassai)
-
-    Examples that should return False:
-    - "川越でオススメの日本酒を教えて" (Tell me recommended sake in Kawagoe)
-    - "東京の地酒について" (About Tokyo local sake)
-    - "京都の日本酒ランキング" (Kyoto sake rankings)
-
-    Returns:
-        True if the query is specifically asking about physical locations
-    """
-    text_lower = text.lower()
-
-    # Japanese place/action keywords - must be present for location query
-    japanese_place_keywords = [
-        "場所", "店", "お店", "販売店", "酒屋", "居酒屋", "バー", "レストラン",
-        "飲める", "買える", "扱っている", "提供", "取り扱い", "販売している",
-        "近く", "付近", "周辺", "地図", "マップ",
-        "どこで買", "どこで飲", "どこで売", "どこにある",
-        "探して", "見つけ", "検索"
-    ]
-
-    # English place/action keywords
-    english_place_keywords = [
-        "where can i buy", "where can i drink", "where to buy", "where to drink",
-        "shop", "store", "restaurant", "bar", "izakaya",
-        "find", "buy", "drink", "near", "around", "location", "place",
-        "serving", "sell", "available at", "map"
-    ]
-
-    # Check for Japanese place keywords
-    for keyword in japanese_place_keywords:
-        if keyword in text:
-            return True
-
-    # Check for English place keywords
-    for keyword in english_place_keywords:
-        if keyword in text_lower:
-            return True
-
     return False
 
 
@@ -222,14 +187,12 @@ def create_sake_agent(
         google_maps_api_key=google_maps_api_key,
     )
 
-    # Bind tools to the LLM (default - LLM decides whether to use tools)
+    # Bind tools to the LLM. Tool selection is left entirely to the model, guided
+    # by SAKE_GUIDE_SYSTEM_PROMPT. An earlier version force-bound
+    # search_sake_places via tool_choice whenever the query contained a keyword
+    # like "find"/"探して"/"検索", which made the social-media, online-shop and
+    # ranking tools unreachable for many ordinary questions.
     llm_with_tools = llm.bind_tools(tools)
-
-    # Bind tools with forced location tool (for location queries)
-    llm_with_forced_location_tool = llm.bind_tools(
-        tools,
-        tool_choice={"type": "function", "function": {"name": "search_sake_places"}}
-    )
 
     # Create the tool node
     tool_node = ToolNode(tools)
@@ -254,25 +217,7 @@ def create_sake_agent(
         if not any(isinstance(m, SystemMessage) for m in messages):
             messages = [SystemMessage(content=SAKE_GUIDE_SYSTEM_PROMPT)] + list(messages)
 
-        # Check if this is a location query from the user
-        # Only force tool usage on the first call (when we haven't made tool calls yet)
-        last_human_message = None
-        has_tool_calls_already = False
-        for msg in reversed(messages):
-            if isinstance(msg, HumanMessage):
-                last_human_message = msg.content
-                break
-            if hasattr(msg, "tool_calls") and msg.tool_calls:
-                has_tool_calls_already = True
-                break
-
-        # Force location tool if it's a location query and we haven't made tool calls yet
-        if last_human_message and _is_location_query(last_human_message) and not has_tool_calls_already:
-            response = llm_with_forced_location_tool.invoke(messages)
-        else:
-            response = llm_with_tools.invoke(messages)
-
-        return {"messages": [response]}
+        return {"messages": [llm_with_tools.invoke(messages)]}
 
     # Build the graph
     workflow = StateGraph(AgentState)

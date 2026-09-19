@@ -18,19 +18,16 @@ from typing import Dict, List, Optional
 
 import requests
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
+from utils.sake_rankings import (  # noqa: E402
+    FALLBACK_FLAVOR,
+    FLAVOR_AXES,
+    flavor_distribution,
+)
+
 SAKENOWA_API_BASE = "https://muro.sakenowa.com/sakenowa-data/api"
 OUTPUT_PATH = Path(__file__).parent.parent / "utils" / "sake_ranking_fallback.json"
 DEFAULT_TOP_N = 50
-
-# Sakenowa flavor-chart fields (f1–f6) mapped to display names
-_FLAVOR_KEYS: Dict[str, str] = {
-    "Fruity":     "f1",   # フルーティ・華やか
-    "Light":      "f2",   # 穏やか・軽快
-    "Sweet":      "f3",   # 甘い・まろやか
-    "Dry":        "f4",   # 辛口・シャープ
-    "Full Body":  "f5",   # どっしり・重厚
-    "Aged":       "f6",   # 熟成・複雑
-}
 
 _SPARKLING_KEYWORDS = frozenset(
     ["スパークリング", "発泡", "微発泡", "Sparkling", "sparkling", "awa"]
@@ -42,8 +39,8 @@ def classify_flavor(brand_name: str, flavor_chart: Optional[dict]) -> str:
     if any(kw in brand_name for kw in _SPARKLING_KEYWORDS):
         return "Sparkling"
     if not flavor_chart:
-        return "Light"
-    scores = {flavor: flavor_chart.get(key, 0) for flavor, key in _FLAVOR_KEYS.items()}
+        return FALLBACK_FLAVOR
+    scores = {flavor: flavor_chart.get(key, 0) for flavor, key in FLAVOR_AXES.items()}
     return max(scores, key=scores.get)
 
 
@@ -150,6 +147,8 @@ def main() -> None:
     except Exception as exc:
         print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(1)
+
+    print(f"Flavour distribution: {flavor_distribution(entries)}")
 
     payload = {
         "as_of": date.today().isoformat(),   # e.g. "2026-02-28"
