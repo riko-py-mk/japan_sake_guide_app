@@ -35,7 +35,8 @@ japan_sake_guide_app/
 │   └── settings.py        # Settings loaded from Streamlit secrets
 └── utils/
     ├── __init__.py
-    └── helpers.py         # Helper functions, constants (SAKE_TYPES, EXAMPLE_PROMPTS)
+    ├── helpers.py         # Helper functions, constants (SAKE_TYPES, EXAMPLE_PROMPTS)
+    └── maps_links.py      # Google Maps URL builders (place pages, directions)
 ```
 
 ## Key Architecture Decisions
@@ -95,6 +96,21 @@ which mislabelled ~40% of the top 50 as "Aged".
 **Prefectures:** the API returns names *with* their suffix (`秋田県`, `京都府`, `東京都`),
 so always resolve regions via `prefecture_region()` / `region_color()`, which strip the
 suffix before lookup.
+
+### Google Maps Links
+
+Links to Google Maps must open the **shop's place page**, not a dropped pin. Build them
+with `_google_maps_place_url()` / `_google_maps_directions_url()` from
+`utils/maps_links.py`, which pass `query_place_id` (or the canonical `url` from Place
+Details). A coordinates-only URL such as
+`https://www.google.com/maps/search/?api=1&query=35.70,139.64` opens the Maps app on an
+anonymous pin with no name, photos, hours or reviews — only use it when no `place_id` is
+available. Never reintroduce coordinates as the preferred form: an earlier version did,
+which is how the "shows just a position" bug appeared.
+
+Note that Place Details can fail (e.g. only *Places API (New)* enabled on the Cloud
+project) while Text/Nearby Search still succeeds. That path must still emit a place-page
+link from the `place_id` returned by the search, and it logs the underlying error.
 
 ### Data Sources
 

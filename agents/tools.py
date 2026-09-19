@@ -15,6 +15,7 @@ from tavily import TavilyClient
 import googlemaps
 from googlemaps.exceptions import ApiError
 
+from utils.maps_links import _google_maps_directions_url, _google_maps_place_url
 from utils.sake_rankings import (
     FLAVOR_TYPES,
     filter_entries,
@@ -621,12 +622,24 @@ def create_sake_tools(
                     phone = place_details.get('formatted_phone_number', '')
                     location_coords = place_details.get('geometry', {}).get('location', {'lat': 0, 'lng': 0})
 
-                    # Get Google Maps URL with coordinate-based fallback (more reliable)
-                    google_maps_url = place_details.get('url', '')
-                    if not google_maps_url and location_coords:
-                        # Use coordinate-based URL as fallback
-                        place_lat, place_lng = location_coords.get('lat', 0), location_coords.get('lng', 0)
-                        google_maps_url = f"https://www.google.com/maps/search/?api=1&query={place_lat},{place_lng}"
+                    # Link to the place page (shop), never a bare coordinate pin
+                    place_lat = location_coords.get('lat', 0)
+                    place_lng = location_coords.get('lng', 0)
+                    google_maps_url = _google_maps_place_url(
+                        place_id,
+                        name=place_details.get('name', name),
+                        address=full_address,
+                        lat=place_lat,
+                        lng=place_lng,
+                        canonical_url=place_details.get('url', ''),
+                    )
+                    directions_url = _google_maps_directions_url(
+                        place_id,
+                        name=place_details.get('name', name),
+                        address=full_address,
+                        lat=place_lat,
+                        lng=place_lng,
+                    )
 
                     # Extract photos (up to 3)
                     photos = []
@@ -674,6 +687,7 @@ def create_sake_tools(
                         "website": website,
                         "phone": phone,
                         "google_maps_url": google_maps_url,
+                        "directions_url": directions_url,
                         "photos": photos,
                         "reviews": reviews,
                         "place_id": place_id
@@ -687,13 +701,19 @@ def create_sake_tools(
 
                 except Exception as e:
                     # If detailed fetch fails, use basic info
+                    print(f"DEBUG: Place details failed for '{name}' ({place_id}): {e}")
                     output.append(f"\n{idx}. {name}")
                     output.append(f"   Address: {address}")
 
-                    # Fallback Google Maps URL using coordinates (more reliable than place_id)
+                    # Details failed, but the place_id from the search result is enough
+                    # to link to the shop's own Google Maps page
                     place_lat = place.get('geometry', {}).get('location', {}).get('lat', 0)
                     place_lng = place.get('geometry', {}).get('location', {}).get('lng', 0)
-                    fallback_url = f"https://www.google.com/maps/search/?api=1&query={place_lat},{place_lng}"
+                    fallback_url = _google_maps_place_url(
+                        place_id, name=name, address=address, lat=place_lat, lng=place_lng
+                    )
+                    if fallback_url:
+                        output.append(f"   Google Maps: {fallback_url}")
 
                     fallback_data = {
                         "name": name,
@@ -702,6 +722,9 @@ def create_sake_tools(
                         "lng": place_lng,
                         "rating": place.get('rating', 0),
                         "google_maps_url": fallback_url,
+                        "directions_url": _google_maps_directions_url(
+                            place_id, name=name, address=address, lat=place_lat, lng=place_lng
+                        ),
                         "place_id": place_id
                     }
 

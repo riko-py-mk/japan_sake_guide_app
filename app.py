@@ -343,49 +343,53 @@ def display_map(map_data: dict):
                 infoWindow = new google.maps.InfoWindow();
 
                 const markers = {markers_json};
+                const bounds = new google.maps.LatLngBounds();
 
                 markers.forEach((location, index) => {{
+                    const position = {{ lat: location.lat, lng: location.lng }};
                     const marker = new google.maps.Marker({{
-                        position: {{ lat: location.lat, lng: location.lng }},
+                        position: position,
                         map: map,
                         title: location.name,
                         animation: google.maps.Animation.DROP,
                     }});
+                    bounds.extend(position);
 
                     marker.addListener("click", () => {{
-                        const content = createInfoWindowContent(location);
-                        infoWindow.setContent(content);
+                        infoWindow.setContent(createInfoWindowContent(location));
                         infoWindow.open(map, marker);
-
-                        // Attach event listeners after InfoWindow opens
-                        google.maps.event.addListenerOnce(infoWindow, 'domready', () => {{
-                            const gmapsLink = document.getElementById('gmaps-link-' + location.place_id);
-                            if (gmapsLink) {{
-                                gmapsLink.addEventListener('click', (e) => {{
-                                    e.preventDefault();
-                                    window.open(location.google_maps_url, '_blank');
-                                }});
-                            }}
-
-                            const websiteLink = document.getElementById('website-link-' + location.place_id);
-                            if (websiteLink) {{
-                                websiteLink.addEventListener('click', (e) => {{
-                                    e.preventDefault();
-                                    window.open(location.website, '_blank');
-                                }});
-                            }}
-                        }});
                     }});
                 }});
+
+                // Keep every result in view instead of trusting a fixed zoom
+                if (markers.length > 1) {{
+                    map.fitBounds(bounds);
+                }} else if (markers.length === 1) {{
+                    map.setCenter(bounds.getCenter());
+                    map.setZoom(16);
+                }}
+            }}
+
+            function esc(value) {{
+                return String(value == null ? '' : value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
             }}
 
             function createInfoWindowContent(location) {{
                 let html = '<div class="info-window">';
 
-                // Title with sake name badge if applicable
-                html += `<h3>${{location.name}}</h3>`;
+                // Title links straight to the shop's own Google Maps page
+                if (location.google_maps_url) {{
+                    html += `<h3><a href="${{esc(location.google_maps_url)}}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: none;">${{esc(location.name)}}</a></h3>`;
+                }} else {{
+                    html += `<h3>${{esc(location.name)}}</h3>`;
+                }}
                 if (location.sake_name) {{
-                    html += `<div style="background: #c41e3a; color: white; padding: 3px 8px; border-radius: 4px; display: inline-block; font-size: 11px; margin-bottom: 8px;">🍶 Serving ${{location.sake_name}}</div>`;
+                    html += `<div style="background: #c41e3a; color: white; padding: 3px 8px; border-radius: 4px; display: inline-block; font-size: 11px; margin-bottom: 8px;">🍶 Serving ${{esc(location.sake_name)}}</div>`;
                 }}
 
                 // Rating
@@ -396,30 +400,37 @@ def display_map(map_data: dict):
 
                 // Address
                 if (location.address) {{
-                    html += `<div class="address">📍 ${{location.address}}</div>`;
+                    html += `<div class="address">📍 ${{esc(location.address)}}</div>`;
                 }}
 
-                // Google Maps link
+                // Google Maps link - opens the shop's place page, not a dropped pin
                 if (location.google_maps_url) {{
-                    html += `<div class="contact">🗺️ <a href="#" id="gmaps-link-${{location.place_id}}" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">View on Google Maps</a></div>`;
+                    html += `<div class="contact">🗺️ <a href="${{esc(location.google_maps_url)}}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline;">View on Google Maps</a></div>`;
+                }}
+
+                // Directions
+                if (location.directions_url) {{
+                    html += `<div class="contact">🧭 <a href="${{esc(location.directions_url)}}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline;">Directions</a></div>`;
                 }}
 
                 // Website
                 if (location.website) {{
-                    html += `<div class="contact">🌐 <a href="#" id="website-link-${{location.place_id}}" style="color: #1a73e8; cursor: pointer; text-decoration: underline;">Website</a></div>`;
+                    html += `<div class="contact">🌐 <a href="${{esc(location.website)}}" target="_blank" rel="noopener noreferrer" style="color: #1a73e8; text-decoration: underline;">Website</a></div>`;
                 }}
 
                 // Phone
                 if (location.phone) {{
-                    html += `<div class="contact">📞 ${{location.phone}}</div>`;
+                    html += `<div class="contact">📞 ${{esc(location.phone)}}</div>`;
                 }}
 
                 // Photos
                 if (location.photos && location.photos.length > 0) {{
                     html += '<div class="photos">';
                     location.photos.forEach(photo => {{
-                        const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${{photo.width}}&photo_reference=${{photo.photo_reference}}&key={google_maps_key}`;
-                        html += `<img src="${{photoUrl}}" alt="Photo" onclick="window.open('${{photoUrl}}', '_blank')">`;
+                        // Cap the requested width: photo.width can be several thousand px
+                        const width = Math.min(photo.width || 400, 400);
+                        const photoUrl = `https://maps.googleapis.com/maps/api/place/photo?maxwidth=${{width}}&photo_reference=${{encodeURIComponent(photo.photo_reference)}}&key={google_maps_key}`;
+                        html += `<a href="${{esc(photoUrl)}}" target="_blank" rel="noopener noreferrer"><img src="${{esc(photoUrl)}}" alt="${{esc(location.name)}}"></a>`;
                     }});
                     html += '</div>';
                 }}
@@ -431,9 +442,9 @@ def display_map(map_data: dict):
                         const reviewStars = '⭐'.repeat(review.rating);
                         html += `
                             <div class="review">
-                                <div class="review-author">${{review.author}} ${{reviewStars}}</div>
-                                <div class="review-text">${{review.text}}...</div>
-                                <div style="font-size: 11px; color: #5f6368; margin-top: 5px;">${{review.time}}</div>
+                                <div class="review-author">${{esc(review.author)}} ${{reviewStars}}</div>
+                                <div class="review-text">${{esc(review.text)}}...</div>
+                                <div style="font-size: 11px; color: #5f6368; margin-top: 5px;">${{esc(review.time)}}</div>
                             </div>
                         `;
                     }});
