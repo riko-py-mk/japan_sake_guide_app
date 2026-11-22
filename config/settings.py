@@ -22,8 +22,7 @@ class Settings:
     )
 
     # Model configuration
-    openai_model: str = "gpt-4o"
-    temperature: float = 0.7
+    openai_model: str = "gpt-5-mini"
 
     # Search configuration
     max_search_results: int = 5
@@ -53,6 +52,7 @@ def get_settings() -> Settings:
             openai_api_key=openai_key,
             tavily_api_key=tavily_key,
             instagram_access_token=instagram_token,
+            openai_model=st.secrets.get("OPENAI_MODEL", "gpt-5-mini") or "gpt-5-mini",
         )
     except Exception as e:
         raise KeyError(f"Failed to load settings: {e}")

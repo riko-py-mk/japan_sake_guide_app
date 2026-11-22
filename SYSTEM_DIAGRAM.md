@@ -24,7 +24,7 @@ graph TB
     subgraph "Agent Layer"
         AG[LangGraph Agent Workflow]
         SM[State Machine Controller]
-        LLM[OpenAI GPT-4o]
+        LLM[OpenAI GPT-5 mini]
     end
 
     subgraph "Tool Layer"
@@ -262,8 +262,7 @@ class Settings:
     tavily_api_key: str
     instagram_access_token: Optional[str] = None
     sake_ranking_urls: tuple = (...)
-    openai_model: str = "gpt-4o"
-    temperature: float = 0.7
+    openai_model: str = "gpt-5-mini"
     max_search_results: int = 5
 ```
 
@@ -364,7 +363,7 @@ sequenceDiagram
     participant User
     participant App as app.py
     participant Agent as LangGraph Agent
-    participant LLM as OpenAI GPT-4o
+    participant LLM as OpenAI GPT-5 mini
     participant Tools as Agent Tools
     participant Tavily as Tavily API
 

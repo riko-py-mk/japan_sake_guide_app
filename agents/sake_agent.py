@@ -17,6 +17,10 @@ from langgraph.graph.message import add_messages
 
 from .tools import create_sake_tools
 
+# Cheap, tool-calling-capable default. GPT-4o is being retired from the API.
+# Override with the OPENAI_MODEL secret (e.g. "gpt-5-nano" for even lower cost).
+DEFAULT_OPENAI_MODEL = "gpt-5-mini"
+
 
 class AgentState(TypedDict):
     """State definition for the sake guide agent."""
@@ -160,6 +164,7 @@ def create_sake_agent(
     tavily_api_key: str,
     instagram_token: Optional[str] = None,
     google_maps_api_key: Optional[str] = None,
+    model: str = DEFAULT_OPENAI_MODEL,
 ):
     """
     Create the Japanese Sake Guide agent using LangGraph.
@@ -169,16 +174,21 @@ def create_sake_agent(
         tavily_api_key: Tavily API key
         instagram_token: Optional Instagram access token for hashtag search
         google_maps_api_key: Optional Google Maps API key for location search
+        model: OpenAI model ID (defaults to DEFAULT_OPENAI_MODEL)
 
     Returns:
         Compiled LangGraph agent
     """
     # Create the LLM
-    llm = ChatOpenAI(
-        model="gpt-4o",
-        temperature=0.7,
-        api_key=openai_api_key,
-    )
+    # GPT-5-family models are reasoning models: they reject a custom
+    # temperature, so none is passed. Low reasoning effort keeps latency and
+    # token cost down; tool routing still works well at this level.
+    llm_kwargs = {"model": model, "api_key": openai_api_key}
+    if model.startswith(("gpt-5", "o1", "o3", "o4")):
+        llm_kwargs["reasoning_effort"] = "low"
+    else:
+        llm_kwargs["temperature"] = 0.7
+    llm = ChatOpenAI(**llm_kwargs)
 
     # Create tools from tools.py
     tools = create_sake_tools(
