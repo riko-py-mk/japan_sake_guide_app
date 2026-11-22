@@ -10,7 +10,7 @@ A Streamlit web application that uses an AI agent to help users discover and lea
 
 - **Frontend**: Streamlit
 - **Agent Framework**: LangGraph (from LangChain)
-- **LLM**: OpenAI GPT-4o
+- **LLM**: OpenAI GPT-5 mini (default; override with the `OPENAI_MODEL` secret)
 - **Web Search**: Tavily API (also used for social media content search)
 - **Deployment**: Streamlit Cloud
 
@@ -164,6 +164,7 @@ def new_tool_name(param: str) -> str:
 Required secrets (in `.streamlit/secrets.toml` or Streamlit Cloud):
 ```toml
 OPENAI_API_KEY = "sk-..."
+OPENAI_MODEL = "gpt-5-mini"  # Optional; default shown
 TAVILY_API_KEY = "tvly-..."
 GOOGLE_MAPS_API_KEY = "AIza..."  # Optional but required for map features
 ```

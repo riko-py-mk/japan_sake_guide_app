@@ -19,7 +19,7 @@ An AI-powered web application to help users discover and learn about Japanese sa
 
 - **Frontend**: [Streamlit](https://streamlit.io/)
 - **Agent Framework**: [LangGraph](https://langchain-ai.github.io/langgraph/)
-- **LLM**: [OpenAI GPT-4o](https://openai.com/)
+- **LLM**: [OpenAI GPT-5 mini](https://openai.com/) (configurable via `OPENAI_MODEL`)
 - **Web Search**: [Tavily API](https://tavily.com/)
 - **Maps & Places**: [Google Maps API](https://developers.google.com/maps) & [Google Places API](https://developers.google.com/maps/documentation/places/web-service)
 - **Deployment**: [Streamlit Cloud](https://streamlit.io/cloud)

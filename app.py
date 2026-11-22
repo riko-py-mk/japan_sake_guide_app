@@ -80,6 +80,7 @@ def initialize_agent():
         tavily_key = st.secrets.get("TAVILY_API_KEY", "")
         instagram_token = st.secrets.get("INSTAGRAM_ACCESS_TOKEN", None)
         google_maps_key = st.secrets.get("GOOGLE_MAPS_API_KEY", "")
+        openai_model = st.secrets.get("OPENAI_MODEL", "")
 
         # Store API key status in session state
         st.session_state.google_maps_configured = bool(google_maps_key)
@@ -95,6 +96,7 @@ def initialize_agent():
             tavily_api_key=tavily_key,
             instagram_token=instagram_token,
             google_maps_api_key=google_maps_key,
+            **({"model": openai_model} if openai_model else {}),
         )
 
 
