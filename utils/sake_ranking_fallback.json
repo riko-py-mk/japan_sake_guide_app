@@ -1,5 +1,5 @@
 {
-  "as_of": "2026-11-23",
+  "as_of": "2026-11-24",
   "entries": [
     {
       "rank": 1,
@@ -76,7 +76,7 @@
       "brand_id": 975,
       "name": "鍋島",
       "prefecture": "佐賀県",
-      "flavor_type": "Mellow"
+      "flavor_type": "Light"
     },
     {
       "rank": 12,
@@ -111,7 +111,7 @@
       "brand_id": 626,
       "name": "醸し人九平次",
       "prefecture": "愛知県",
-      "flavor_type": "Mellow"
+      "flavor_type": "Light"
     },
     {
       "rank": 17,
@@ -307,14 +307,14 @@
       "brand_id": 881,
       "name": "雁木",
       "prefecture": "山口県",
-      "flavor_type": "Mellow"
+      "flavor_type": "Light"
     },
     {
       "rank": 45,
       "brand_id": 380,
       "name": "八海山",
       "prefecture": "新潟県",
-      "flavor_type": "Mellow"
+      "flavor_type": "Mild"
     },
     {
       "rank": 46,
